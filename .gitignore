@@ -3,7 +3,7 @@ logs
 .DS_Store
 
 .secrets
-
+.actrc
 .vscode/*
 .devcontainer/*
 
