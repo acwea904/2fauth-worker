@@ -20,6 +20,7 @@ frontend/.gitignore
 frontend/node_modules
 frontend/dist
 frontend/tests
+frontend/dev-dist
 frontend/playwright-report
 frontend/playwright.config.ts
 frontend/package-lock.json
