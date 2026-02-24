@@ -37,7 +37,7 @@
           </el-sub-menu>
 
           <el-menu-item index="backups">
-            <el-icon><Cloudy /></el-icon><span>多源备份</span>
+            <el-icon><Cloudy /></el-icon><span>云端备份</span>
           </el-menu-item>
         </el-menu>
       </el-aside>
@@ -78,7 +78,7 @@
             <el-menu-item index="migration-import"><el-icon><Download /></el-icon><span>数据导入</span></el-menu-item>
           </el-sub-menu>
           <el-menu-item index="backups">
-            <el-icon><Cloudy /></el-icon><span>多源备份</span>
+            <el-icon><Cloudy /></el-icon><span>云端备份</span>
           </el-menu-item>
         </el-menu>
       </el-drawer>
@@ -107,7 +107,7 @@
           <DataImport @success="handleSuccess" />
         </div>
 
-        <!-- 视图：多源备份 -->
+        <!-- 视图：云端备份 -->
         <div v-if="activeTab === 'backups'" class="view-container">
           <DataBackup @success="handleSuccess" />
         </div>

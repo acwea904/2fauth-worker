@@ -3,21 +3,21 @@
     <div class="tab-card-wrapper">
       <div style="text-align: center; margin-bottom: 30px;">
         <h2>数据导出</h2>
-        <p style="color: #909399;">将当前金库中的所有账号打包，并使用您设置的密码进行 AES-GCM 强加密。</p>
+        <p style="color: #909399;">选择您需要的导出格式。请注意，明文导出存在安全风险。</p>
       </div>
 
-      <div style="max-width: 500px; margin: 0 auto;">
-        <el-alert title="🛡️ 极密保护" type="warning" description="为保护您的资产，所有导出数据必须强制加密！" show-icon :closable="false" style="margin-bottom: 20px;" />
-        
-        <div style="text-align: center; margin-top: 40px;">
-          <el-button type="warning" size="large" style="width: 100%;" @click="showExportDialog = true">
-            <el-icon><Lock /></el-icon> 设置密码并导出
-          </el-button>
+      <div style="max-width: 600px; margin: 0 auto;">
+        <div class="export-options">
+          <el-button size="large" plain @click="openExportDialog('encrypted')">🔒 本系统加密备份 (.json)</el-button>
+          <el-button size="large" plain @click="openExportDialog('json')">📄 标准 JSON / 2FAuth (.json)</el-button>
+          <el-button size="large" plain @click="openExportDialog('2fas')">📱 2FAS 备份 (.2fas)</el-button>
+          <el-button size="large" plain @click="openExportDialog('text')">📝 纯文本 URI (.txt)</el-button>
         </div>
       </div>
     </div>
 
-    <el-dialog v-model="showExportDialog" title="设置导出密码" width="400px" destroy-on-close>
+    <!-- 加密导出密码弹窗 -->
+    <el-dialog v-model="showPasswordDialog" title="设置导出密码" width="400px" destroy-on-close>
       <el-form :model="exportForm" label-position="top" v-loading="isExporting" :element-loading-text="loadingText">
         <el-form-item label="加密密码 (至少 12 位)">
           <el-input v-model="exportForm.password" type="password" show-password placeholder="请输入高强度密码" />
@@ -27,8 +27,18 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showExportDialog = false">取消</el-button>
-        <el-button type="warning" :loading="isExporting" @click="handleExport">开始加密并下载</el-button>
+        <el-button @click="showPasswordDialog = false">取消</el-button>
+        <el-button type="primary" :loading="isExporting" @click="executeExport">开始加密并下载</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 明文导出风险提示弹窗 -->
+    <el-dialog v-model="showWarningDialog" title="⚠️ 安全警告" width="400px">
+      <el-alert title="风险提示" type="error" :closable="false" description="您正在导出未加密的明文数据。任何获取该文件的人都可以直接访问您的账号验证码！" show-icon />
+      <p style="margin-top: 15px;">确定要继续吗？</p>
+      <template #footer>
+        <el-button @click="showWarningDialog = false">取消</el-button>
+        <el-button type="danger" @click="executeExport" :loading="isExporting">确定导出</el-button>
       </template>
     </el-dialog>
   </div>
@@ -37,43 +47,82 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Lock } from '@element-plus/icons-vue'
 import { request } from '../utils/request'
 
-const showExportDialog = ref(false)
+const showPasswordDialog = ref(false)
+const showWarningDialog = ref(false)
 const isExporting = ref(false)
 const exportForm = ref({ password: '', confirm: '' })
 const loadingText = ref('')
+const currentType = ref('encrypted')
 
-const handleExport = async () => {
-  if (exportForm.value.password !== exportForm.value.confirm) {
-    return ElMessage.error('两次输入的密码不一致！')
+const openExportDialog = (type) => {
+  currentType.value = type
+  if (type === 'encrypted') {
+    exportForm.value = { password: '', confirm: '' }
+    showPasswordDialog.value = true
+  } else {
+    showWarningDialog.value = true
   }
-  if (exportForm.value.password.length < 12) {
-    return ElMessage.error('密码太弱！至少需要 12 个字符。')
+}
+
+const executeExport = async () => {
+  const payload = { type: currentType.value }
+  
+  if (currentType.value === 'encrypted') {
+    if (exportForm.value.password !== exportForm.value.confirm) {
+      return ElMessage.error('两次输入的密码不一致！')
+    }
+    if (exportForm.value.password.length < 12) {
+      return ElMessage.error('密码太弱！至少需要 12 个字符。')
+    }
+    payload.password = exportForm.value.password
+    loadingText.value = '正在进行高强度 AES-GCM 加密...'
+  } else {
+    loadingText.value = '正在生成导出文件...'
   }
 
-  loadingText.value = '正在进行高强度 AES-GCM 加密...'
   isExporting.value = true
   try {
-    const data = await request('/api/accounts/export-secure', {
+    const response = await fetch('/api/accounts/export', {
       method: 'POST',
-      body: JSON.stringify({ password: exportForm.value.password })
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      },
+      body: JSON.stringify(payload)
     })
     
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.error || 'Export failed')
+    }
+
+    let blob, filename
+    const date = new Date().toISOString().split('T')[0]
+
+    if (currentType.value === 'text') {
+      const text = await response.text()
+      blob = new Blob([text], { type: 'text/plain' })
+      filename = `2fa-export-${date}.txt`
+    } else {
+      const data = await response.json()
+      blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      filename = `2fa-export-${currentType.value}-${date}.${currentType.value === '2fas' ? '2fas' : 'json'}`
+    }
+
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `2fa-backup-encrypted-${new Date().toISOString().split('T')[0]}.json`
+    a.download = filename
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
 
-    ElMessage.success('🎉 加密备份导出成功！请妥善保管好您的密码！')
-    showExportDialog.value = false
-    exportForm.value = { password: '', confirm: '' }
+    ElMessage.success('导出成功！')
+    showPasswordDialog.value = false
+    showWarningDialog.value = false
   } catch (error) {} finally { isExporting.value = false }
 }
 </script>
@@ -86,4 +135,8 @@ const handleExport = async () => {
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
   min-height: 400px;
 }
+
+.export-options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+.export-options .el-button { margin: 0; justify-content: flex-start; padding-left: 20px; height: auto; padding-top: 15px; padding-bottom: 15px; }
+@media (max-width: 768px) { .export-options { grid-template-columns: 1fr; } }
 </style>

@@ -220,44 +220,62 @@ accounts.post('/add-from-uri', async (c) => {
     return c.json({ success: true, account: { ...newAccount, secret: '[PROTECTED]' } });
 });
 
-// 加密导出数据
-accounts.post('/export-secure', async (c) => {
-    const { password } = await c.req.json();
-    if (!password || password.length < SECURITY_CONFIG.MIN_EXPORT_PASSWORD_LENGTH) {
-        throw new AppError(`导出密码至少需要 ${SECURITY_CONFIG.MIN_EXPORT_PASSWORD_LENGTH} 个字符`, 400);
+// 通用导出接口 (支持 加密/JSON/2FAS/文本)
+accounts.post('/export', async (c) => {
+    const { type, password } = await c.req.json();
+    
+    if (!['encrypted', 'json', '2fas', 'text'].includes(type)) {
+        throw new AppError('Invalid export type', 400);
+    }
+
+    if (type === 'encrypted') {
+        if (!password || password.length < SECURITY_CONFIG.MIN_EXPORT_PASSWORD_LENGTH) {
+            throw new AppError(`导出密码至少需要 ${SECURITY_CONFIG.MIN_EXPORT_PASSWORD_LENGTH} 个字符`, 400);
+        }
     }
 
     const { results } = await c.env.DB.prepare("SELECT * FROM accounts").all();
     const key = c.env.ENCRYPTION_KEY || c.env.JWT_SECRET;
 
-    // 解密所有数据以准备导出
+    // 解密所有数据
     const plainAccounts = await Promise.all(results.map(async (row: any) => ({
         service: row.service,
         account: row.account,
         category: row.category,
-        secret: await decryptField(row.secret, key),
+        secret: await decryptField(row.secret, key) || '',
         digits: row.digits,
         period: row.period
     })));
     
-    // 组装标准导出格式
-    const exportData = {
-        version: "2.0",
-        app: "2fa-secure-manager",
-        encrypted: true,
-        timestamp: new Date().toISOString(),
-        accounts: plainAccounts
-    };
+    const timestamp = new Date().toISOString();
+    const baseData = { version: "2.0", app: "2fauth", timestamp };
 
-    // 使用用户提供的密码进行 AES-GCM 加密
-    const encrypted = await encryptData(exportData, password);
-    const exportFile = {
-        version: "2.0", app: "2fa-secure-manager", encrypted: true,
-        timestamp: new Date().toISOString(), data: encrypted,
-        note: "This file is encrypted with your export password. Keep it safe!"
-    };
-
-    return c.json(exportFile);
+    if (type === 'encrypted') {
+        const exportData = { ...baseData, encrypted: true, accounts: plainAccounts };
+        const encryptedContent = await encryptData(exportData, password);
+        return c.json({
+            ...baseData, encrypted: true, data: encryptedContent,
+            note: "This file is encrypted with your export password. Keep it safe!"
+        });
+    } else if (type === 'json') {
+        return c.json({ ...baseData, encrypted: false, accounts: plainAccounts });
+    } else if (type === '2fas') {
+        // 2FAS 兼容格式
+        const services = plainAccounts.map(acc => ({
+            name: acc.service,
+            secret: acc.secret,
+            otp: { account: acc.account, digits: acc.digits, period: acc.period, algorithm: "SHA1", issuer: acc.service }
+        }));
+        return c.json({ services });
+    } else if (type === 'text') {
+        // 纯文本 URI 格式
+        const lines = plainAccounts.map(acc => {
+            const label = encodeURIComponent(`${acc.service}:${acc.account}`);
+            const issuer = encodeURIComponent(acc.service);
+            return `otpauth://totp/${label}?secret=${acc.secret}&issuer=${issuer}&digits=${acc.digits}&period=${acc.period}`;
+        });
+        return c.text(lines.join('\n'));
+    }
 });
 
 // 导入数据 (支持 加密/JSON/2FAS/文本)

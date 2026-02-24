@@ -2,7 +2,7 @@
   <div class="data-backup-wrapper">
     <div class="tab-card-wrapper">
       <div style="text-align: center; margin-bottom: 30px;">
-        <h2>多源备份中心</h2>
+        <h2>云端备份中心</h2>
         <p style="color: #909399;">配置多个备份源（WebDAV, S3等），确保数据万无一失。</p>
       </div>
       <BackupSettings @restore-success="$emit('success')" />

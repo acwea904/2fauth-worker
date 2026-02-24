@@ -6,7 +6,7 @@ import { EnvBindings } from './config';
 // 稍后我们会在这里引入拆分好的路由模块
 import authRoutes from './routes/auth';
 import accountsRoutes from './routes/accounts';
-import backupRoutes from './routes/backups';
+import backupRoutes, { handleScheduledBackup } from './routes/backups';
 
 // 扩展 EnvBindings 以包含 ASSETS (Cloudflare Pages/Workers Assets)
 type Bindings = EnvBindings & { ASSETS: { fetch: (req: Request) => Promise<Response> } };
@@ -64,5 +64,11 @@ export default {
 
         // 非 API 请求全部交给静态资源 (Frontend)
         return env.ASSETS.fetch(request);
+    },
+
+    // 定时任务入口
+    async scheduled(event: any, env: Bindings, ctx: any) {
+        console.log(`[Cron] Scheduled event triggered at ${new Date().toISOString()}`);
+        ctx.waitUntil(handleScheduledBackup(env));
     }
 };

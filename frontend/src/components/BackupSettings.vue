@@ -2,7 +2,7 @@
   <div class="backup-container">
     <!-- 顶部操作 -->
     <div class="header-actions">
-      <h3>备份源管理</h3>
+      <h3>云端备份管理</h3>
       <el-button type="primary" @click="openAddDialog">
         <el-icon><Plus /></el-icon> 添加备份源
       </el-button>
@@ -14,9 +14,14 @@
         <el-card shadow="hover" class="provider-card">
           <template #header>
             <div class="card-header">
-              <div class="provider-title">
-                <el-tag size="small" effect="dark" :type="getProviderTypeTag(provider.type)">{{ provider.type.toUpperCase() }}</el-tag>
-                <span class="provider-name">{{ provider.name }}</span>
+              <div class="provider-info">
+                <div class="provider-title">
+                  <el-tag size="small" effect="dark" :type="getProviderTypeTag(provider.type)">{{ provider.type.toUpperCase() }}</el-tag>
+                  <span class="provider-name">{{ provider.name }}</span>
+                  <el-tooltip v-if="provider.auto_backup" content="自动备份已开启" placement="top">
+                    <el-icon color="#67C23A" size="16" style="cursor: help"><Timer /></el-icon>
+                  </el-tooltip>
+                </div>
               </div>
               <div class="provider-actions">
                 <el-button link type="primary" @click="editProvider(provider)"><el-icon><Edit /></el-icon></el-button>
@@ -58,13 +63,13 @@
           </el-select>
         </el-form-item>
         <el-form-item label="名称 (别名)">
-          <el-input v-model="form.name" placeholder="例如: 我的坚果云" />
+          <el-input v-model="form.name" placeholder="例如: OpenList" />
         </el-form-item>
         
         <!-- WebDAV 配置 -->
         <template v-if="form.type === 'webdav'">
           <el-form-item label="WebDAV 地址">
-            <el-input v-model="form.config.url" placeholder="https://dav.jianguoyun.com/dav/" />
+            <el-input v-model="form.config.url" placeholder="https://pan.example.com/dav/" />
           </el-form-item>
           <el-form-item label="用户名">
             <el-input v-model="form.config.username" />
@@ -98,6 +103,27 @@
             <el-input v-model="form.config.saveDir" placeholder="backups/" />
           </el-form-item>
         </template>
+
+        <el-divider content-position="left">自动备份配置</el-divider>
+        <el-form-item label="自动备份">
+          <el-switch v-model="form.autoBackup" active-text="开启" inactive-text="关闭" />
+        </el-form-item>
+        <el-form-item label="加密密码" v-if="form.autoBackup">
+          <div v-if="isEditing && hasExistingAutoPwd" style="margin-bottom: 15px; width: 100%;">
+            <el-radio-group v-model="configUseExistingAutoPwd">
+              <el-radio :label="true">保持原密码不变</el-radio>
+              <el-radio :label="false">设置新密码</el-radio>
+            </el-radio-group>
+          </div>
+          <div v-if="!(isEditing && hasExistingAutoPwd && configUseExistingAutoPwd)" style="width: 100%;">
+            <el-input v-model="form.autoBackupPassword" type="password" show-password placeholder="输入加密密码" />
+            <div class="form-tip" style="font-size: 12px; color: #909399; margin-top: 5px;"><span style="color: #F56C6C;">*</span> 必填项，长度必须 &ge; 12 位。</div>
+          </div>
+          <div v-else style="padding: 10px; background-color: #f0f9eb; border-radius: 4px; color: #67C23A; font-size: 13px; display: flex; align-items: center; gap: 8px; width: 100%;">
+            <el-icon><CircleCheck /></el-icon><span>系统将继续使用原有的自动备份密码。</span>
+          </div>
+        </el-form-item>
+
       </el-form>
       <template #footer>
         <el-button @click="testConnection" :loading="isTesting">测试连接</el-button>
@@ -107,8 +133,23 @@
 
     <!-- 备份弹窗 -->
     <el-dialog v-model="showBackupDialog" title="加密备份" :width="layoutState.isMobile ? '90%' : '400px'">
-      <el-alert title="数据安全" type="info" description="请输入加密密码。此密码用于加密备份文件内容，请务必牢记！" show-icon :closable="false" style="margin-bottom: 15px;" />
-      <el-input v-model="backupPassword" type="password" show-password placeholder="输入加密密码" />
+      <el-alert title="数据安全" type="info" description="请输入加密密码用于保护备份文件。" show-icon :closable="false" style="margin-bottom: 20px;" />
+      
+      <div v-if="currentActionProvider?.auto_backup" style="margin-bottom: 20px;">
+        <el-radio-group v-model="useAutoPassword">
+          <el-radio :label="true">使用自动备份密码</el-radio>
+          <el-radio :label="false">使用临时密码</el-radio>
+        </el-radio-group>
+      </div>
+
+      <div v-if="!useAutoPassword">
+        <el-input v-model="backupPassword" type="password" show-password placeholder="输入加密密码 (至少12位)" />
+      </div>
+      <div v-else style="padding: 10px; background-color: #f0f9eb; border-radius: 4px; color: #67C23A; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+        <el-icon><CircleCheck /></el-icon>
+        <span>系统将使用您预设的自动备份密码进行加密。</span>
+      </div>
+
       <template #footer>
         <el-button @click="showBackupDialog = false">取消</el-button>
         <el-button type="primary" @click="handleBackup" :loading="isBackingUp">开始备份</el-button>
@@ -148,28 +189,32 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, CircleCheck, Timer } from '@element-plus/icons-vue'
 import { request } from '../utils/request'
 import { layoutState } from '../states/layout'
 
 const emit = defineEmits(['restore-success'])
 
+// --- 状态定义 ---
 const providers = ref([])
 const isLoading = ref(false)
 
-// 配置弹窗状态
+// 配置弹窗
 const showConfigDialog = ref(false)
 const isEditing = ref(false)
 const isTesting = ref(false)
 const isSaving = ref(false)
-const form = ref({ type: 'webdav', name: '', config: { url: '', username: '', password: '', saveDir: '/', endpoint: '', bucket: '', region: 'auto', accessKeyId: '', secretAccessKey: '' } })
+const form = ref({ type: 'webdav', name: '', config: { url: '', username: '', password: '', saveDir: '/', endpoint: '', bucket: '', region: 'auto', accessKeyId: '', secretAccessKey: '' }, autoBackup: false, autoBackupPassword: '' })
 const currentProviderId = ref(null)
+const hasExistingAutoPwd = ref(false)
+const configUseExistingAutoPwd = ref(false)
 
-// 备份/恢复状态
+// 备份/恢复弹窗
 const showBackupDialog = ref(false)
 const backupPassword = ref('')
 const isBackingUp = ref(false)
 const currentActionProvider = ref(null)
+const useAutoPassword = ref(false)
 
 const showRestoreListDialog = ref(false)
 const isLoadingFiles = ref(false)
@@ -179,6 +224,7 @@ const restorePassword = ref('')
 const selectedFile = ref(null)
 const isRestoring = ref(false)
 
+// --- API 交互 ---
 const fetchProviders = async () => {
   isLoading.value = true
   try {
@@ -199,7 +245,9 @@ const formatSize = (bytes) => {
 
 const openAddDialog = () => {
   isEditing.value = false
-  form.value = { type: 'webdav', name: '', config: { url: '', username: '', password: '', saveDir: '/', endpoint: '', bucket: '', region: 'auto', accessKeyId: '', secretAccessKey: '' } }
+  form.value = { type: 'webdav', name: '', config: { url: '', username: '', password: '', saveDir: '/', endpoint: '', bucket: '', region: 'auto', accessKeyId: '', secretAccessKey: '' }, autoBackup: false, autoBackupPassword: '' }
+  hasExistingAutoPwd.value = false
+  configUseExistingAutoPwd.value = false
   showConfigDialog.value = true
 }
 
@@ -209,8 +257,12 @@ const editProvider = (provider) => {
   form.value = JSON.parse(JSON.stringify({
     type: provider.type,
     name: provider.name,
-    config: provider.config
+    config: provider.config,
+    autoBackup: !!provider.auto_backup,
+    autoBackupPassword: '' // 编辑时不回显密码，留空表示不修改
   }))
+  hasExistingAutoPwd.value = !!provider.auto_backup_password
+  configUseExistingAutoPwd.value = true // 默认保持原密码
   showConfigDialog.value = true
 }
 
@@ -226,6 +278,17 @@ const validateForm = () => {
     if (!c.bucket) return '请输入 Bucket'
     if (!c.accessKeyId) return '请输入 Access Key ID'
     if (!c.secretAccessKey) return '请输入 Secret Access Key'
+  }
+  
+  if (form.value.autoBackup) {
+    // 如果是编辑模式且有旧密码，并且用户选择保持原密码，则跳过校验
+    if (isEditing.value && hasExistingAutoPwd.value && configUseExistingAutoPwd.value) {
+      return null
+    }
+    // 其他情况（新增、编辑无旧密码、编辑选择设置新密码）都必须校验
+    if (!form.value.autoBackupPassword || form.value.autoBackupPassword.length < 12) {
+      return '自动备份密码长度必须至少 12 位'
+    }
   }
   return null
 }
@@ -246,6 +309,11 @@ const testConnection = async () => {
 const saveProvider = async () => {
   const error = validateForm()
   if (error) return ElMessage.warning(error)
+
+  // 若保持原密码，清空密码字段避免覆盖
+  if (isEditing.value && hasExistingAutoPwd.value && configUseExistingAutoPwd.value) {
+    form.value.autoBackupPassword = ''
+  }
 
   isSaving.value = true
   try {
@@ -271,15 +339,21 @@ const deleteProvider = async (provider) => {
 const openBackupDialog = (provider) => {
   currentActionProvider.value = provider
   backupPassword.value = ''
+  useAutoPassword.value = !!provider.auto_backup
   showBackupDialog.value = true
 }
 
 const handleBackup = async () => {
-  if (backupPassword.value.length < 12) return ElMessage.warning('密码至少12位')
+  if (!useAutoPassword.value && backupPassword.value.length < 12) {
+    return ElMessage.warning('密码至少12位')
+  }
+  
+  const pwdToSend = useAutoPassword.value ? '' : backupPassword.value
+  
   isBackingUp.value = true
   try {
     const res = await request(`/api/backups/providers/${currentActionProvider.value.id}/backup`, {
-      method: 'POST', body: JSON.stringify({ password: backupPassword.value })
+      method: 'POST', body: JSON.stringify({ password: pwdToSend })
     })
     if (res.success) {
       ElMessage.success('备份成功')
@@ -330,7 +404,8 @@ onMounted(fetchProviders)
 .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .provider-card { height: 100%; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
-.provider-title { display: flex; align-items: center; gap: 10px; font-weight: bold; }
+.provider-info { display: flex; align-items: center; }
+.provider-title { display: flex; align-items: center; gap: 8px; font-weight: bold; flex-wrap: wrap; }
 .status-text { font-size: 13px; color: #666; margin-bottom: 15px; }
 .action-buttons { display: flex; gap: 10px; }
 </style>
