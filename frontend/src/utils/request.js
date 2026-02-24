@@ -2,7 +2,7 @@ import { ElMessage } from 'element-plus'
 import router from '../router'
 
 // 辅助函数：从 document.cookie 中安全地读取指定的 cookie 值
-function getCookie(name) {
+export function getCookie(name) {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
     if (parts.length === 2) return parts.pop().split(';').shift();

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { secureHeaders } from 'hono/secure-headers';
 import { EnvBindings } from './config';
 
 // 稍后我们会在这里引入拆分好的路由模块
@@ -24,6 +25,20 @@ app.use('/api/*', cors({
     maxAge: 86400,
 }));
 
+// 1.1 安全头配置 (CSP & Security Headers)
+app.use('*', secureHeaders({
+    contentSecurityPolicy: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vue/Vite 需要 unsafe-eval/inline
+        styleSrc: ["'self'", "'unsafe-inline'"], // Element Plus 需要 unsafe-inline
+        imgSrc: ["'self'", "data:", "blob:", "https://avatars.githubusercontent.com"], // 允许 GitHub 头像和 Base64 二维码
+        connectSrc: ["'self'", "https://api.github.com", "https://github.com"], // 允许连接 GitHub API
+        fontSrc: ["'self'", "data:"],
+        workerSrc: ["'self'", "blob:"], // 允许 Service Worker
+        objectSrc: ["'none'"], // 禁止 Flash 等插件
+    },
+}));
+
 // 2. 健康检查接口 (用于测试后端是否正常启动)
 app.get('/api', (c) => c.text('🔐 2FA Secure Manager API is running!'));
 
@@ -31,6 +46,18 @@ app.get('/api', (c) => c.text('🔐 2FA Secure Manager API is running!'));
 app.route('/api/oauth', authRoutes);
 app.route('/api/accounts', accountsRoutes);
 app.route('/api/backups', backupRoutes);
+
+// 4. API 404 处理 (必须在静态资源 fallback 之前，确保 API 路径返回 JSON)
+app.all('/api/*', (c) => {
+    return c.json({ success: false, error: 'API Not Found' }, 404);
+});
+
+// 5. 静态资源托管 (让 Hono 接管所有非 API 请求，以便应用 CSP 安全头)
+app.get('*', async (c) => {
+    const res = await c.env.ASSETS.fetch(c.req.raw);
+    // 关键修复：ASSETS 返回的 Response 可能是不可变的。创建副本以允许 Hono 中间件添加 CSP 头。
+    return new Response(res.body, res);
+});
 
 // 4. 全局错误处理
 app.onError((err, c) => {
@@ -48,23 +75,14 @@ app.onError((err, c) => {
     }, statusCode);
 });
 
-// 5. 404 处理
-app.notFound((c) => {
-    return c.json({ success: false, error: 'API Not Found' }, 404);
-});
-
 // 6. 导出默认处理函数，实现前后端路由分发
 export default {
     async fetch(request: Request, env: Bindings, ctx: any) {
-        const url = new URL(request.url);
-
-        // 识别 API 请求前缀
-        if (url.pathname.startsWith('/api')) {
-            return app.fetch(request, env, ctx);
-        }
-
-        // 非 API 请求全部交给静态资源 (Frontend)
-        return env.ASSETS.fetch(request);
+        // 将所有请求交给 Hono 处理
+        // Hono 会根据路由规则：
+        // 1. /api/* -> API 路由
+        // 2. * -> 静态资源 (env.ASSETS) + 全局中间件 (CSP)
+        return app.fetch(request, env, ctx);
     },
 
     // 定时任务入口

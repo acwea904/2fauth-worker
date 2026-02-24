@@ -47,7 +47,7 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { request } from '../utils/request'
+import { getCookie } from '../utils/request'
 
 const showPasswordDialog = ref(false)
 const showWarningDialog = ref(false)
@@ -88,8 +88,9 @@ const executeExport = async () => {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        'X-CSRF-Token': getCookie('csrf_token') || ''
       },
+      credentials: 'include', // 关键：发送 httpOnly Cookie
       body: JSON.stringify(payload)
     })
     
@@ -123,6 +124,9 @@ const executeExport = async () => {
     ElMessage.success('导出成功！')
     showPasswordDialog.value = false
     showWarningDialog.value = false
-  } catch (error) {} finally { isExporting.value = false }
+  } catch (error) {
+    console.error('Export failed:', error)
+    ElMessage.error(error.message || '导出失败，请稍后重试')
+  } finally { isExporting.value = false }
 }
 </script>

@@ -1,7 +1,7 @@
 import { createApp } from 'vue'
-import ElementPlus, { ElMessage } from 'element-plus'
-import { registerSW } from 'virtual:pwa-register'
+import { ElMessage } from 'element-plus'
 import 'element-plus/dist/index.css'
+import { registerSW } from 'virtual:pwa-register'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import './main.css'
 import './dark.css'
@@ -26,5 +26,4 @@ registerSW({
 })
 
 app.use(router)
-app.use(ElementPlus)
 app.mount('#app')
