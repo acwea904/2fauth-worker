@@ -9,7 +9,7 @@
     </div>
 
     <!-- 列表区域 -->
-    <el-row :gutter="20" v-loading="isLoading">
+    <el-row :gutter="20" v-loading="isLoading && providers.length === 0">
       <el-col :xs="24" :sm="12" :md="8" v-for="provider in providers" :key="provider.id" style="margin-bottom: 20px;">
         <el-card shadow="hover" class="provider-card">
           <template #header>
@@ -226,10 +226,22 @@ const isRestoring = ref(false)
 
 // --- API 交互 ---
 const fetchProviders = async () => {
-  isLoading.value = true
+  // 1. 离线优先：尝试加载缓存
+  const cached = localStorage.getItem('cached_backup_providers')
+  if (cached) {
+    providers.value = JSON.parse(cached)
+    // 有缓存时，isLoading 保持 false (或设为 false)，实现静默更新
+  } else {
+    isLoading.value = true
+  }
+
   try {
     const res = await request('/api/backups/providers')
-    if (res.success) providers.value = res.providers
+    if (res.success) {
+      providers.value = res.providers
+      // 2. 更新缓存
+      localStorage.setItem('cached_backup_providers', JSON.stringify(res.providers))
+    }
   } finally { isLoading.value = false }
 }
 

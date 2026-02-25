@@ -1,5 +1,5 @@
 <template>
-  <div class="account-list-wrapper" v-loading="loading" element-loading-text="数据加载中..." style="min-height: 400px;">
+  <div class="account-list-wrapper" style="min-height: 400px;">
     <div v-if="!loading && accounts.length === 0 && !searchQuery" class="empty-state">
       <el-empty description="空空如也，快去添加你的第一个 2FA 账号吧！">
         <el-button type="primary" @click="$emit('switch-tab', 'add-account')">去添加账号</el-button>
@@ -15,20 +15,27 @@
           style="max-width: 400px; flex: 1;" 
         />
         
-        <div class="batch-actions" v-if="selectedIds.length > 0" style="display: flex; align-items: center; gap: 10px;">
-          <span class="batch-text">已选择 {{ selectedIds.length }} 项</span>
-          <el-button type="danger" plain @click="handleBulkDelete" :loading="isBulkDeleting">
-            <el-icon><Delete /></el-icon> 批量删除
-          </el-button>
-          <el-button @click="selectedIds = []" plain>取消选择</el-button>
-        </div>
-        <div v-else>
-          <el-button @click="selectAllVisible" plain>全选本页</el-button>
+        <div class="batch-actions" style="display: flex; align-items: center; gap: 10px;">
+          <template v-if="selectedIds.length > 0">
+            <span class="batch-text">已选 {{ selectedIds.length }} 项</span>
+            <el-button type="danger" plain @click="handleBulkDelete" :loading="isBulkDeleting">
+              <el-icon><Delete /></el-icon> 删除
+            </el-button>
+            <el-button @click="selectedIds = []" plain>取消</el-button>
+          </template>
+          <el-button v-else @click="selectAllLoaded" plain>全选已加载</el-button>
         </div>
       </div>
 
-      <el-row :gutter="20" v-if="accounts.length > 0">
-        <el-col :xs="24" :sm="12" :md="8" :lg="6" v-for="account in accounts" :key="account.id" style="margin-bottom: 20px;">
+      <div 
+        class="list-container" 
+        style="min-height: 200px;"
+        v-infinite-scroll="loadMore"
+        :infinite-scroll-disabled="disabled"
+        :infinite-scroll-distance="100"
+      >
+        <el-row :gutter="20" v-if="accounts.length > 0">
+          <el-col :xs="24" :sm="12" :md="8" :lg="6" v-for="account in accounts" :key="account.id" style="margin-bottom: 20px;">
           <el-card class="account-card" :class="{ 'is-selected': selectedIds.includes(account.id) }" shadow="hover" @click="copyCode(account)">
             <div class="card-header">
               <div class="service-info">
@@ -79,24 +86,18 @@
               </div>
             </div>
           </el-card>
-        </el-col>
-      </el-row>
+          </el-col>
+        </el-row>
 
-      <div class="pagination-wrapper" v-if="total > 0" style="margin-top: 10px; display: flex; justify-content: center;">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="[12, 24, 48, 96]"
-          background
-          :layout="layoutState.isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
-          :small="layoutState.isMobile"
-          :total="total"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
+        <div v-if="loadingMore" style="text-align: center; padding: 20px; color: var(--el-text-color-secondary);">
+          <el-icon class="is-loading"><Loading /></el-icon> 正在加载更多...
+        </div>
+        <div v-if="noMore && accounts.length > 0" style="text-align: center; padding: 20px; color: var(--el-text-color-secondary); font-size: 12px;">
+          - 到底了，没有更多账号了 -
+        </div>
+
+        <el-empty v-if="!loading && accounts.length === 0 && searchQuery" description="没有找到匹配的账号" />
       </div>
-
-      <el-empty v-if="!loading && accounts.length === 0 && searchQuery" description="没有找到匹配的账号" />
     </div>
 
     <!-- 编辑弹窗 -->
@@ -154,9 +155,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { MoreFilled, Edit, Delete, Picture, View, Hide, CopyDocument } from '@element-plus/icons-vue'
+import { MoreFilled, Edit, Delete, Picture, View, Hide, CopyDocument, Loading } from '@element-plus/icons-vue'
 import QRCode from 'qrcode'
 import { request } from '../utils/request'
 import { layoutState } from '../states/layout'
@@ -165,7 +166,9 @@ const emit = defineEmits(['switch-tab'])
 
 // --- 状态定义 ---
 const accounts = ref([])
+const allFetchedAccounts = ref([]) // 新增：用于存储所有已获取的数据（缓存+网络）
 const loading = ref(true)
+const loadingMore = ref(false)
 const total = ref(0)
 const searchQuery = ref('')
 const currentPage = ref(1)
@@ -187,6 +190,8 @@ const showSecret = ref(false)
 const qrCodeUrl = ref('')
 
 let globalTimer = null
+let loadingMessageHandle = null
+let loadingTimer = null
 
 // --- 工具函数 ---
 // TOTP 算法 (Web Crypto API)
@@ -238,40 +243,123 @@ const generateTOTP = async (secret, period, digits, offset = 0) => {
 
 let searchTimer = null
 
+// 计算属性：是否禁用无限滚动
+const noMore = computed(() => accounts.value.length >= total.value && total.value > 0)
+const disabled = computed(() => loading.value || loadingMore.value || noMore.value)
+
+// --- Loading 提示控制 ---
+const showTopLoading = () => {
+  // 防抖：如果已经在显示或正在等待显示，则不重复触发
+  if (loadingMessageHandle || loadingTimer) return
+
+  loadingMessageHandle = ElMessage({
+    message: '数据正在加载...',
+    icon: Loading,
+    duration: 0, // 设为 0 则不会自动关闭
+    type: 'info',
+    grouping: true
+  })
+}
+
+const hideTopLoading = () => {
+  if (loadingTimer) clearTimeout(loadingTimer) // 清除等待中的 Loading
+  loadingTimer = null
+
+  if (loadingMessageHandle) {
+    loadingMessageHandle.close()
+    loadingMessageHandle = null
+  }
+}
+
 // --- 核心逻辑 ---
 // 获取账号列表
-const fetchAccounts = async () => {
-  // 1. 离线优先策略：先尝试加载本地缓存
-  const cachedData = localStorage.getItem('cached_accounts')
-  if (cachedData) {
-    try {
-      const parsed = JSON.parse(cachedData)
-      accounts.value = parsed.accounts || []
-      if (parsed.pagination) total.value = parsed.pagination.total
-      updateAccountsStatus() // 立即开始倒计时
-      loading.value = false // 有缓存就不显示全屏 Loading，体验更好
-    } catch (e) { console.error('Cache load failed', e) }
+const fetchAccounts = async (append = false, useCache = true) => {
+  // 如果不是追加模式（即刷新或搜索），重置页码
+  if (!append) {
+    currentPage.value = 1
+  }
+  if (!append) showTopLoading()
+
+  const isInitLoad = !append && currentPage.value === 1
+  const isNoSearch = !searchQuery.value
+  let loadedFromCache = false
+  
+  // 本次请求的 limit (默认 pageSize，但如果是恢复缓存，则请求缓存的大小)
+  let requestLimit = pageSize.value
+  let requestPage = currentPage.value
+
+  // 1. 离线优先策略：仅在初始化且无搜索时，尝试加载本地缓存
+  if (useCache && isInitLoad && isNoSearch) {
+    const cachedData = localStorage.getItem('cached_accounts')
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData)
+        allFetchedAccounts.value = parsed.accounts || []
+        if (parsed.pagination) total.value = parsed.pagination.total
+        
+        // 【性能优化关键点】
+        // 即使缓存有 350 条，初始只渲染 pageSize (12条)，避免卡死
+        accounts.value = allFetchedAccounts.value.slice(0, pageSize.value)
+        
+        // 后台仍然请求所有缓存的数据量，以保持数据新鲜度
+        if (allFetchedAccounts.value.length > pageSize.value) {
+          requestLimit = allFetchedAccounts.value.length
+          // 修正 currentPage，以便后续网络请求能接上
+          currentPage.value = Math.ceil(allFetchedAccounts.value.length / pageSize.value)
+        }
+        
+        updateAccountsStatus() // 立即开始倒计时
+        loadedFromCache = true
+      } catch (e) { console.error('Cache load failed', e) }
+    }
+  }
+  
+  if (append) {
+    loadingMore.value = true
   } else {
     loading.value = true
   }
 
   try {
     const query = new URLSearchParams({
-      page: currentPage.value,
-      limit: pageSize.value,
+      page: requestPage,
+      limit: requestLimit,
       search: searchQuery.value
     }).toString()
     
     const data = await request(`/api/accounts?${query}`)
     if (data.success) {
-      // 2. 网络请求成功：更新缓存 (仅在第一页且无搜索时缓存，避免缓存了局部数据)
-      if (currentPage.value === 1 && !searchQuery.value) {
-        localStorage.setItem('cached_accounts', JSON.stringify(data))
+      const newAccounts = data.accounts || []
+      
+      if (append) {
+        // 追加模式：去重后添加到列表
+        const existingIds = new Set(allFetchedAccounts.value.map(a => a.id))
+        const uniqueNewAccounts = newAccounts.filter(a => !existingIds.has(a.id))
+        allFetchedAccounts.value.push(...uniqueNewAccounts)
+        // 同时追加到显示列表（因为用户正在滚动加载）
+        accounts.value.push(...uniqueNewAccounts)
+      } else {
+        // 覆盖模式 (刷新/搜索/初始化)
+        allFetchedAccounts.value = newAccounts
+        // 更新显示列表：保持当前已渲染的数量，或者重置为 pageSize
+        // 如果是初始化加载（tab切换回来），重置为 pageSize 以保证速度
+        // 如果是搜索，也重置。
+        const countToRender = isInitLoad ? pageSize.value : Math.max(accounts.value.length, pageSize.value)
+        accounts.value = allFetchedAccounts.value.slice(0, countToRender)
       }
-      isOfflineMode.value = false
-      accounts.value = data.accounts || []
-      updateAccountsStatus() // 立即计算一次
+      
       if (data.pagination) total.value = data.pagination.total
+      isOfflineMode.value = false
+      updateAccountsStatus() // 立即计算一次
+      
+      // 2. 实时缓存：保存完整的内存数据
+      if (isNoSearch) {
+        const cacheData = {
+          accounts: allFetchedAccounts.value,
+          pagination: { total: total.value }
+        }
+        localStorage.setItem('cached_accounts', JSON.stringify(cacheData))
+      }
     }
   } catch (error) {
     console.error('Failed to fetch accounts', error)
@@ -279,31 +367,43 @@ const fetchAccounts = async () => {
     if (!navigator.onLine || error.message.includes('Failed to fetch')) {
       isOfflineMode.value = true
       if (accounts.value.length > 0) {
-        ElMessage.warning('网络不可用，正在使用离线数据')
+        if (!loadedFromCache) ElMessage.warning('网络不可用，正在使用离线数据')
         return
       }
     }
   } finally {
     loading.value = false
+    loadingMore.value = false
+    if (!append) hideTopLoading()
   }
 }
 
 defineExpose({ fetchAccounts })
 
-// 分页与搜索
-const handleSizeChange = (val) => {
-  pageSize.value = val
-  currentPage.value = 1
-  fetchAccounts()
-}
-
-const handleCurrentChange = (val) => {
-  currentPage.value = val
-  fetchAccounts()
+// 滚动加载更多
+const loadMore = () => {
+  if (disabled.value) return
+  
+  // 1. 优先从内存加载 (分批渲染)
+  if (accounts.value.length < allFetchedAccounts.value.length) {
+    // 为了展示 Loading 效果，人为增加一点延迟 (300ms)，提升交互感知
+    loadingMore.value = true
+    setTimeout(() => {
+      const currentLen = accounts.value.length
+      const nextBatch = allFetchedAccounts.value.slice(currentLen, currentLen + pageSize.value)
+      accounts.value.push(...nextBatch)
+      updateAccountsStatus() // 立即为新渲染的卡片计算验证码
+      loadingMore.value = false
+    }, 300)
+  } else {
+    // 2. 内存数据已全部显示，才请求服务器
+    currentPage.value++
+    fetchAccounts(true) // true 表示追加模式
+  }
 }
 
 watch(searchQuery, () => {
-  currentPage.value = 1
+  showTopLoading()
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => fetchAccounts(), 300)
 })
@@ -315,10 +415,9 @@ const toggleSelection = (id) => {
   else selectedIds.value.push(id)
 }
 
-const selectAllVisible = () => {
-  accounts.value.forEach(acc => {
-    if (!selectedIds.value.includes(acc.id)) selectedIds.value.push(acc.id)
-  })
+const selectAllLoaded = () => {
+  // 全选当前已加载的所有账号
+  selectedIds.value = accounts.value.map(acc => acc.id)
 }
 
 // 批量删除
@@ -333,7 +432,7 @@ const handleBulkDelete = async () => {
     if (data.success) {
       ElMessage.success(`成功删除了 ${data.count} 个账号`)
       selectedIds.value = []
-      fetchAccounts()
+      fetchAccounts(false, false) // 删除后不使用缓存，防止已删数据闪现
     }
   } catch (e) {} finally { isBulkDeleting.value = false }
 }
@@ -346,7 +445,7 @@ const handleCommand = async (command, account) => {
       const data = await request(`/api/accounts/${account.id}`, { method: 'DELETE' })
       if (data.success) {
         ElMessage.success('账号已删除')
-        fetchAccounts()
+        fetchAccounts(false, false) // 删除后不使用缓存
       }
     } catch (e) {}
   } else if (command === 'edit') {
@@ -381,7 +480,7 @@ const submitEditAccount = async () => {
     if (data.success) {
       ElMessage.success('账号修改成功')
       showEditDialog.value = false
-      fetchAccounts()
+      fetchAccounts(false, false) // 编辑后也不使用缓存，确保显示最新信息
     }
   } catch (e) {} finally { isEditing.value = false }
 }
@@ -469,5 +568,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (globalTimer) clearInterval(globalTimer)
+  if (searchTimer) clearTimeout(searchTimer)
+  hideTopLoading()
 })
 </script>
+
