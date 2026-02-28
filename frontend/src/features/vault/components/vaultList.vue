@@ -1,20 +1,6 @@
 <template>
   <div class="vault-list-wrapper" style="min-height: 400px;">
-    <!-- 1. 加载状态 (本地缓存尚未挂载，或者正在首次/后台请求时但无数据) -->
-    <div v-if="(isLoading || isFetching) && vault.length === 0" class="loading-state" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 400px; color: var(--el-text-color-secondary);">
-      <el-icon class="is-loading" :size="48" style="margin-bottom: 20px; color: var(--el-color-primary);"><Loading /></el-icon>
-      <p style="font-size: 16px; letter-spacing: 1px;">数据获取中, 请稍候...</p>
-    </div>
-
-    <!-- 2. 空状态 (明确加载完毕 + 数据真正为空 + 无搜索) -->
-    <div v-else-if="!isLoading && !isFetching && vault.length === 0 && !searchQuery" class="empty-state">
-      <el-empty description="空空如也，快去添加你的第一个 2FA 账号吧！">
-        <el-button type="primary" @click="$emit('switch-tab', 'add-vault-scan')">去添加账号</el-button>
-      </el-empty>
-    </div>
-
-    <!-- 3. 数据列表 (已解锁) -->
-    <div v-else class="vault-content">
+    <div class="vault-content">
       <div class="toolbar" style="margin-bottom: 20px; display: flex; gap: 15px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
           <el-input 
@@ -42,7 +28,21 @@
         </div>
       </div>
 
-      <div 
+      <!-- 1. 加载状态 (本地缓存尚未挂载，或者正在首次/后台请求时但无数据) -->
+      <div v-if="(isLoading || isFetching) && vault.length === 0" class="loading-state" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 400px; color: var(--el-text-color-secondary);">
+        <el-icon class="is-loading" :size="48" style="margin-bottom: 20px; color: var(--el-color-primary);"><Loading /></el-icon>
+        <p style="font-size: 16px; letter-spacing: 1px;">数据获取中, 请稍候...</p>
+      </div>
+
+      <!-- 2. 空状态 (明确加载完毕 + 数据真正为空 + 无搜索) -->
+      <div v-else-if="!isLoading && !isFetching && vault.length === 0 && !searchQuery" class="empty-state">
+        <el-empty description="空空如也，快去添加你的第一个 2FA 账号吧！">
+          <el-button type="primary" @click="$emit('switch-tab', 'add-vault-scan')">去添加账号</el-button>
+        </el-empty>
+      </div>
+
+      <!-- 3. 数据列表 (已解锁) -->
+      <div v-else
         class="list-container" 
         style="min-height: 200px;"
         v-infinite-scroll="handleLoadMore"

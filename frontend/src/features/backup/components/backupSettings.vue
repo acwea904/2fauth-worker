@@ -8,8 +8,14 @@
       </el-button>
     </div>
 
-    <!-- 列表区域 -->
-    <el-row :gutter="20" v-loading="isLoading && providers.length === 0">
+    <!-- 全局加载状态 -->
+    <div v-if="isLoading && providers.length === 0" class="loading-state" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 200px; color: var(--el-text-color-secondary);">
+      <el-icon class="is-loading" :size="48" style="margin-bottom: 20px; color: var(--el-color-primary);"><Loading /></el-icon>
+      <p style="font-size: 16px; letter-spacing: 1px;">备份源获取中, 请稍候...</p>
+    </div>
+
+    <!-- 列表区域 (有数据情况) -->
+    <el-row v-else-if="providers.length > 0" :gutter="20">
       <el-col :xs="24" :sm="12" :md="8" v-for="provider in providers" :key="provider.id" style="margin-bottom: 20px;">
         <el-card shadow="hover" class="provider-card">
           <template #header>
@@ -48,10 +54,12 @@
         </el-card>
       </el-col>
       
-      <el-col :span="24" v-if="providers.length === 0">
-        <el-empty description="暂无备份源，请点击右上角添加" />
-      </el-col>
     </el-row>
+
+    <!-- 空状态 -->
+    <div v-else class="empty-state" style="margin-top: 40px;">
+      <el-empty description="暂无备份源，请点击右上角添加" />
+    </div>
 
     <!-- 编辑弹窗 -->
     <el-dialog v-model="showConfigDialog" :title="isEditing ? '编辑备份源' : '添加备份源'" :width="layoutStore.isMobile ? '90%' : '500px'" destroy-on-close>
@@ -187,7 +195,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, CircleCheck, Timer } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, CircleCheck, Timer, Loading } from '@element-plus/icons-vue'
 import { request } from '@/shared/utils/request'
 import { useLayoutStore } from '@/shared/stores/layoutStore'
 import { useVaultStore } from '@/features/vault/store/vaultStore'

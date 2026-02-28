@@ -11,7 +11,7 @@
 
 [**Demo演示**](https://2fa.nezha.pp.ua)  https://2fa.nezha.pp.ua
 
-- 演示站配置了 `OAUTH_ALLOW_ALL=true`变量, 默认允许任何用户登录,正常部署切记 **不要配置OAUTH_ALLOW_ALL参数** | **不要配置OAUTH_ALLOW_ALL参数** | **不要配置OAUTH_ALLOW_ALL参数**
+- 演示站配置了 `OAUTH_ALLOW_ALL=true`变量, 默认允许任何用户登录,正常部署切记 **不要配置OAUTH_ALLOW_ALL变量** | **不要配置OAUTH_ALLOW_ALL变量** | **不要配置OAUTH_ALLOW_ALL变量**
 - 演示站数据可以任意修改、删除
 
 ---
