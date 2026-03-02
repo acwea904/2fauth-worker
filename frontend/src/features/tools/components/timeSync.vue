@@ -38,54 +38,33 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
-import { request } from '@/shared/utils/request'
+import { useTimeSync } from '@/features/tools/composables/useTimeSync'
 
-const localTime = ref(Date.now())
-const offset = ref(null)
-const rtt = ref(null)
-const isSyncing = ref(false)
-let clockTimer = null
+const {
+  localTime,
+  serverTime,
+  offset,
+  rtt,
+  isSyncing,
+  syncStatus,
+  syncTime: _syncTime
+} = useTimeSync()
 
-const serverTime = computed(() => localTime.value + (offset.value || 0))
 const formatTime = (ts) => new Date(ts).toLocaleTimeString()
 
-const syncStatus = computed(() => {
-  if (offset.value === null) return null
-  const abs = Math.abs(offset.value)
-  if (abs < 2000) return { title: '时间同步正常', type: 'success', desc: '本地时间与服务器误差极小，不影响 2FA 验证。' }
-  if (abs < 30000) return { title: '存在微小偏差', type: 'warning', desc: '建议校准本地时间，但通常仍可使用。' }
-  return { title: '时间偏差过大', type: 'error', desc: '严重偏差！2FA 验证码将失效，请务必校准设备时间。' }
-})
-
 const syncTime = async () => {
-  isSyncing.value = true
-  const start = Date.now()
-  try {
-    const res = await request('/api/tools/server-time')
-    const end = Date.now()
-    if (res.success) {
-      const serverTs = res.time
-      rtt.value = end - start
-      const estimatedServerTime = serverTs + (rtt.value / 2)
-      offset.value = Math.round(estimatedServerTime - end)
-      ElMessage.success(`校准完成，偏差 ${offset.value}ms`)
-    }
-  } catch (e) {
-    ElMessage.error(e.message || '无法连接服务器')
-  } finally {
-    isSyncing.value = false
+  const result = await _syncTime()
+  if (result.success) {
+    ElMessage.success(`校准完成，偏差 ${result.offset}ms`)
+  } else {
+    ElMessage.error(result.error?.message || '无法连接服务器')
   }
 }
 
 onMounted(() => {
-  clockTimer = setInterval(() => { localTime.value = Date.now() }, 1000)
   syncTime()
-})
-
-onUnmounted(() => {
-  if (clockTimer) clearInterval(clockTimer)
 })
 </script>

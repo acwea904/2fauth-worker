@@ -1,6 +1,6 @@
 import { ElMessage } from 'element-plus'
 import router from '@/app/router'
-import { useUserStore } from '@/features/auth/store/userStore'
+import { useAuthUserStore } from '@/features/auth/store/authUserStore'
 
 // 辅助函数：从 document.cookie 中安全地读取指定的 cookie 值
 export function getCookie(name) {
@@ -54,8 +54,8 @@ export async function request(url, options = {}) {
 
                 // 调用 Pinia Action 清空用户信息、缓存、以及重置内存状态，防止路由守卫死循环打回
                 try {
-                    const userStore = useUserStore()
-                    userStore.clearUserInfo()
+                    const authUserStore = useAuthUserStore()
+                    authUserStore.clearUserInfo()
                 } catch (e) {
                     // Fallback to manual localstorage clear if store is unavailable
                     localStorage.removeItem('userInfo')

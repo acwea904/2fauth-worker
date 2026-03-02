@@ -14,11 +14,10 @@ export abstract class BaseOAuthProvider {
     constructor(env: EnvBindings) {
         this.env = env;
     }
-
     abstract readonly id: string;
     abstract readonly name: string;
     abstract readonly color: string; // 按钮背景色
-    abstract readonly icon: string; // 前端图标 SVG 代码 (完整 <svg> 标签)
+    abstract readonly icon: string; // 前端 Vue 图标组件名，如 'iconGithub'
     abstract readonly whitelistFields: string[]; // 新增：定义该 Provider 支持哪些白名单字段 (如 ['email', 'username'])
 
     // 1. 获取授权跳转链接

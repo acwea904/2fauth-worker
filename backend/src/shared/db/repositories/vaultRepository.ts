@@ -91,6 +91,24 @@ export class VaultRepository {
     }
 
     /**
+     * 根据 service/account 查找记录 (大小写不敏感，自动 trim)
+     */
+    async findByServiceAccount(service: string, account: string): Promise<VaultItem | undefined> {
+        // 使用 lower() 函数进行数据库级别的大小写不敏感比较
+        const normalizedService = service.trim().toLowerCase();
+        const normalizedAccount = account.trim().toLowerCase();
+        const result = await this.db
+            .select()
+            .from(vault)
+            .where(
+                sql`lower(${vault.service}) = ${normalizedService}`,
+                sql`lower(${vault.account}) = ${normalizedAccount}`
+            )
+            .limit(1);
+        return result[0];
+    }
+
+    /**
      * 创建一个新 item
      */
     async create(item: NewVaultItem): Promise<VaultItem> {

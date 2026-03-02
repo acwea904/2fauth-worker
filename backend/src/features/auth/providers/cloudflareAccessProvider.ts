@@ -32,7 +32,7 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
     readonly id = 'cloudflare';
     readonly name = 'Cloudflare Access';
     readonly color = '#F38020';
-    readonly icon = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 48 48" fill="currentColor"><path d="M36.8 16.6C36.2 11.2 31.7 7 26.2 7c-4.8 0-8.9 3.2-10.2 7.6-5.3.6-9.4 5.1-9.4 10.5 0 5.8 4.7 10.5 10.5 10.5h19.7c4.8 0 8.7-3.9 8.7-8.7 0-4.6-3.6-8.4-8.1-8.7-.2-1.1-.4-2.1-.6-3.1z"/></svg>';
+    readonly icon = 'iconCloudflare';
     readonly whitelistFields = ['email']; // Cloudflare Access 主要基于邮箱验证
 
     constructor(env: EnvBindings) {
@@ -43,12 +43,12 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
     private getBaseUrl(): string {
         const orgDomain = this.env.OAUTH_CLOUDFLARE_ORG_DOMAIN;
         if (!orgDomain) {
-             throw new AppError('Cloudflare Access configuration incomplete: Missing OAUTH_CLOUDFLARE_ORG_DOMAIN', 500);
+            throw new AppError('Cloudflare Access configuration incomplete: Missing OAUTH_CLOUDFLARE_ORG_DOMAIN', 500);
         }
 
         let baseUrl = orgDomain.replace(/\/$/, '');
         if (!baseUrl.startsWith('http')) {
-             baseUrl = `https://${baseUrl}`;
+            baseUrl = `https://${baseUrl}`;
         }
         return baseUrl;
     }
@@ -58,9 +58,9 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
         const redirectUri = this.env.OAUTH_CLOUDFLARE_REDIRECT_URI;
 
         if (!clientId || !redirectUri) {
-             throw new AppError('Cloudflare Access configuration incomplete', 500);
+            throw new AppError('Cloudflare Access configuration incomplete', 500);
         }
-      
+
         const baseUrl = this.getBaseUrl();
         const { verifier, challenge } = await generatePKCE();
 
@@ -74,7 +74,7 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
             code_challenge_method: 'S256'
         });
 
-        const  url = `${baseUrl}/cdn-cgi/access/sso/oidc/${clientId}/authorization?${params.toString()}`;
+        const url = `${baseUrl}/cdn-cgi/access/sso/oidc/${clientId}/authorization?${params.toString()}`;
         return { url, codeVerifier: verifier };
     }
 
@@ -91,7 +91,7 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
         const redirectUri = this.env.OAUTH_CLOUDFLARE_REDIRECT_URI;
 
         if (!clientId || !clientSecret || !redirectUri) {
-             throw new AppError('Cloudflare Access configuration incomplete', 500);
+            throw new AppError('Cloudflare Access configuration incomplete', 500);
         }
 
         const baseUrl = this.getBaseUrl();
@@ -113,10 +113,10 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
         });
 
         if (!tokenResponse.ok) {
-             // 增加更详细的错误日志，方便调试
-             const errorText = await tokenResponse.text();
-             console.error(`Cloudflare Access Token Error: ${tokenResponse.status} - ${errorText}`);
-             throw new AppError(`Cloudflare Access Token Exchange failed: ${tokenResponse.status}`, 502);
+            // 增加更详细的错误日志，方便调试
+            const errorText = await tokenResponse.text();
+            console.error(`Cloudflare Access Token Error: ${tokenResponse.status} - ${errorText}`);
+            throw new AppError(`Cloudflare Access Token Exchange failed: ${tokenResponse.status}`, 502);
         }
 
         const tokenData: any = await tokenResponse.json();

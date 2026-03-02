@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { request } from '@/shared/utils/request'
+import { authService } from '@/features/auth/service/authService'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { removeIdbItem } from '@/shared/utils/idb'
 
-export const useUserStore = defineStore('user', () => {
+export const useAuthUserStore = defineStore('authUserInfo', () => {
   const getStoredUser = () => {
     try {
       return JSON.parse(localStorage.getItem('userInfo') || '{}')
@@ -38,27 +38,19 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const logout = async () => {
-    try {
-      await request('/api/oauth/logout', { method: 'POST' })
-    } catch (e) {
-      console.error('Logout request failed', e)
-    } finally {
-      await clearUserInfo()
-    }
+    await authService.logout()
+    await clearUserInfo()
   }
 
   const fetchUserInfo = async () => {
-    try {
-      const data = await request(`/api/oauth/me?_t=${Date.now()}`, { silent: true })
-      if (data.success) {
-        setUserInfo(data.userInfo)
-        return true
-      }
-    } catch (e) {
+    const data = await authService.fetchMe()
+    if (data && data.success) {
+      setUserInfo(data.userInfo)
+      return true
+    } else {
       await clearUserInfo()
       return false
     }
-    return false
   }
 
   return {

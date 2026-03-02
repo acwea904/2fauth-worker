@@ -53,11 +53,27 @@ export class VaultService {
     /**
      * 创建账户
      */
+    // normalize a service+account pair for comparison
+    private normalizeSignature(service: string, account: string) {
+        return `${(service || '').toString().trim().toLowerCase()}:${(account||'').toString().trim().toLowerCase()}`;
+    }
+
     async createAccount(userId: string, data: any) {
-        const { service, account, category, secret, digits, period, algorithm } = data;
+        let { service, account, category, secret, digits, period, algorithm } = data;
 
         if (!service || !account || !secret || !validateBase32Secret(secret)) {
             throw new AppError('Invalid account data or secret format', 400);
+        }
+
+        // 入库清洗：去掉 account 中可能带有的 Issuer: 前缀
+        if (typeof account === 'string' && account.includes(':')) {
+            account = account.split(':').pop()?.trim() || account;
+        }
+
+        // duplicate check (case‑insensitive & trimmed) using repository helper
+        const existing = await this.repository.findByServiceAccount(service, account);
+        if (existing) {
+            throw new AppError('Account already exists', 409);
         }
 
         const normalizedSecret = secret.replace(/\s/g, '').toUpperCase();
@@ -81,10 +97,15 @@ export class VaultService {
      * 更新账户
      */
     async updateAccount(id: string, data: any) {
-        const { service, account, category, secret, digits, period, algorithm } = data;
+        let { service, account, category, secret, digits, period, algorithm } = data;
 
         if (!service || !account) {
             throw new AppError('Service and account are required', 400);
+        }
+
+        // 入库清洗：去掉 account 中可能带有的 Issuer: 前缀
+        if (typeof account === 'string' && account.includes(':')) {
+            account = account.split(':').pop()?.trim() || account;
         }
 
         // secret 可选：若未传则保留数据库中已有的加密值
@@ -211,15 +232,21 @@ export class VaultService {
                     validAccounts = data.accounts;
                     // 格式 B: 标准导出格式 (data.secrets[] with issuer field)
                 } else if (Array.isArray(data.secrets)) {
-                    validAccounts = data.secrets.map((item: any) => ({
-                        service: item.issuer || item.service || item.name || 'Unknown',
-                        account: item.account || item.label || '',
-                        secret: item.secret,
-                        algorithm: item.algorithm || 'SHA1',
-                        digits: item.digits || 6,
-                        period: item.period || 30,
-                        category: item.category || '',
-                    }));
+                    validAccounts = data.secrets.map((item: any) => {
+                        let account = item.account || item.label || '';
+                        if (typeof account === 'string' && account.includes(':')) {
+                            account = account.split(':').pop()?.trim() || account;
+                        }
+                        return {
+                            service: item.issuer || item.service || item.name || 'Unknown',
+                            account,
+                            secret: item.secret,
+                            algorithm: item.algorithm || 'SHA1',
+                            digits: item.digits || 6,
+                            period: item.period || 30,
+                            category: item.category || '',
+                        };
+                    });
                     // 格式 C: 旧版 2FAuth 开源项目导出 (data.data[])
                 } else if (data.app && data.app.includes('2fauth') && Array.isArray(data.data)) {
                     validAccounts = data.data.map((item: any) => ({ ...item, category: '' }));
@@ -228,29 +255,41 @@ export class VaultService {
                     validAccounts = data;
                     // 格式 E: 老版 2FAS JSON (data.services[])
                 } else if (data.services) {
-                    validAccounts = data.services.map((s: any) => ({
-                        service: s.otp?.issuer || s.name || s.service,
-                        account: s.otp?.account || s.account || s.login || '',
-                        secret: s.secret,
-                        algorithm: s.otp?.algorithm || s.algorithm || 'SHA1',
-                        digits: s.otp?.digits || s.digits || 6,
-                        period: s.otp?.period || s.period || 30,
-                        category: s.group || '',
-                    }));
+                    validAccounts = data.services.map((s: any) => {
+                        let account = s.otp?.account || s.account || s.login || '';
+                        if (typeof account === 'string' && account.includes(':')) {
+                            account = account.split(':').pop()?.trim() || account;
+                        }
+                        return {
+                            service: s.otp?.issuer || s.name || s.service,
+                            account,
+                            secret: s.secret,
+                            algorithm: s.otp?.algorithm || s.algorithm || 'SHA1',
+                            digits: s.otp?.digits || s.digits || 6,
+                            period: s.otp?.period || s.period || 30,
+                            category: s.group || '',
+                        };
+                    });
                 }
             } else if (type === '2fas') {
                 const data = JSON.parse(content);
                 if (Array.isArray(data.services)) {
-                    validAccounts = data.services.map((s: any) => ({
-                        // 2FAS backup 格式 schemaVersion 4：字段在 otp 子对象中
-                        service: s.otp?.issuer || s.name || s.otp?.issuer || 'Unknown',
-                        account: s.otp?.account || s.account || s.username || '',
-                        secret: s.secret || '',
-                        algorithm: (s.otp?.algorithm || s.algorithm || 'SHA1').toUpperCase(),
-                        digits: s.otp?.digits || s.digits || 6,
-                        period: s.otp?.period || s.period || 30,
-                        category: s.group || s.category || '',
-                    }));
+                    validAccounts = data.services.map((s: any) => {
+                        let account = s.otp?.account || s.account || s.username || '';
+                        if (typeof account === 'string' && account.includes(':')) {
+                            account = account.split(':').pop()?.trim() || account;
+                        }
+                        return {
+                            // 2FAS backup 格式 schemaVersion 4：字段在 otp 子对象中
+                            service: s.otp?.issuer || s.name || s.otp?.issuer || 'Unknown',
+                            account,
+                            secret: s.secret || '',
+                            algorithm: (s.otp?.algorithm || s.algorithm || 'SHA1').toUpperCase(),
+                            digits: s.otp?.digits || s.digits || 6,
+                            period: s.otp?.period || s.period || 30,
+                            category: s.group || s.category || '',
+                        };
+                    });
                 }
             } else if (type === 'text') {
                 const lines = content.split('\n').filter((line: string) => line.trim());
@@ -271,16 +310,21 @@ export class VaultService {
 
         if (type === 'raw') validAccounts = JSON.parse(content);
 
-        // 获取现有以去重
+        // 获取现有以去重 (使用小写/去空格以避免大小写差异导致重复)
         const existingItems = await this.repository.findAll();
-        const existingSet = new Set(existingItems.map((row: any) => `${row.service}:${row.account}`));
+        const existingSet = new Set(existingItems.map((row: any) => this.normalizeSignature(row.service, row.account)));
 
-        const uniqueAccountsToInsert = [];
-        const seenInBatch = new Set();
+        const uniqueAccountsToInsert: any[] = [];
+        const seenInBatch = new Set<string>();
 
         for (const acc of validAccounts) {
             if (acc.service && acc.account && validateBase32Secret(acc.secret)) {
-                const signature = `${acc.service}:${acc.account}`;
+                // 统一清洗：去掉 account 中可能带有的 Issuer: 前缀
+                if (typeof acc.account === 'string' && acc.account.includes(':')) {
+                    acc.account = acc.account.split(':').pop()?.trim() || acc.account;
+                }
+
+                const signature = this.normalizeSignature(acc.service, acc.account);
                 if (!existingSet.has(signature) && !seenInBatch.has(signature)) {
                     uniqueAccountsToInsert.push(acc);
                     seenInBatch.add(signature);

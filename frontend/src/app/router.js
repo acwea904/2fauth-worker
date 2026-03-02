@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useUserStore } from '@/features/auth/store/userStore'
+import { useAuthUserStore } from '@/features/auth/store/authUserStore'
 
 const routes = [
   {
@@ -33,17 +33,17 @@ const router = createRouter({
 
 // 路由守卫：拦截未登录用户的访问
 router.beforeEach(async (to, from, next) => {
-  const userStore = useUserStore()
+  const authUserStore = useAuthUserStore()
 
   // 1. 检查内存中是否有用户信息 (乐观检查)
-  let isAuthenticated = !!(userStore.userInfo && userStore.userInfo.id)
+  let isAuthenticated = !!(authUserStore.userInfo && authUserStore.userInfo.id)
 
   // 2. 如果内存无状态，但目标页需要登录 OR 是仅游客页面(如登录页)，尝试通过 Cookie 恢复会话
   // (Option 1B: 即使访问登录页，也先确认是否已登录，防止误判)
   if (!isAuthenticated && (to.meta.requiresAuth || to.meta.guestOnly)) {
     try {
-      await userStore.fetchUserInfo()
-      isAuthenticated = !!(userStore.userInfo && userStore.userInfo.id)
+      await authUserStore.fetchUserInfo()
+      isAuthenticated = !!(authUserStore.userInfo && authUserStore.userInfo.id)
     } catch (e) { }
   }
 

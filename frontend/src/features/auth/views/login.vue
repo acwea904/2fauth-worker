@@ -4,7 +4,7 @@
       <div class="logo-container">
         <el-icon :size="54" color="#409EFC"><Lock /></el-icon>
         <h2>2FAuth Worker</h2>
-        <p class="subtitle">您的专属云端双因素认证管家</p>
+        <p class="subtitle">A Secure 2FA Management Tool</p>
       </div>
 
       <div class="action-container">
@@ -19,8 +19,9 @@
             @click="handleLogin(provider.id)"
           >
             <template #icon>
-              <el-icon v-if="provider.icon"><span v-html="provider.icon" style="display: flex;"></span></el-icon>
-              <el-icon v-else><Platform /></el-icon>
+              <el-icon>
+                <component :is="iconComponents[provider.icon] || Platform" />
+              </el-icon>
             </template>
             通过 {{ provider.name }} 授权登录
           </el-button>
@@ -41,68 +42,27 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { Lock, Platform } from '@element-plus/icons-vue'
-import { useUserStore } from '@/features/auth/store/userStore'
+import iconGithub from '@/shared/components/icons/iconGithub.vue'
+import iconGoogle from '@/shared/components/icons/iconGoogle.vue'
+import iconGitee from '@/shared/components/icons/iconGitee.vue'
+import iconTelegram from '@/shared/components/icons/iconTelegram.vue'
+import iconCloudflare from '@/shared/components/icons/iconCloudflare.vue'
+import iconNodeloc from '@/shared/components/icons/iconNodeloc.vue'
+import { useOAuthProviders } from '@/features/auth/composables/useOAuthProviders'
 
-const router = useRouter()
-const loadingProvider = ref(null)
-const providers = ref([])
-const CACHE_KEY = 'oauth_providers_cache'
-
-onMounted(async () => {
-  // 1. 优先从缓存读取，实现秒开
-  const cached = localStorage.getItem(CACHE_KEY)
-  if (cached) {
-    try {
-      providers.value = JSON.parse(cached)
-    } catch (e) {
-      console.warn('Invalid cache', e)
-    }
-  }
-
-  // 2. 后台请求接口更新数据 (Stale-while-revalidate 策略)
-  try {
-    const res = await fetch('/api/oauth/providers')
-    const data = await res.json()
-    if (data.success) {
-      providers.value = data.providers
-      // 只有当后端返回了有效的登录方式时才更新缓存，防止因配置丢失导致客户端缓存被清空
-      if (data.providers && data.providers.length > 0) {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(data.providers))
-      }
-    }
-  } catch (e) {
-    console.error('Failed to load providers', e)
-  }
-})
-
-const handleLogin = async (providerId) => {
-  loadingProvider.value = providerId
-  try {
-    // 1. 获取授权链接
-    const response = await fetch(`/api/oauth/authorize/${providerId}`)
-    const data = await response.json()
-
-    if (data.success && data.authUrl) {
-      // 2. 存储 state 防御 CSRF 并跳转
-      localStorage.setItem('oauth_state', data.state)
-      localStorage.setItem('oauth_provider', providerId)
-      // 如果有 PKCE verifier，也存起来
-      if (data.codeVerifier) {
-        localStorage.setItem('oauth_code_verifier', data.codeVerifier)
-      }
-      window.location.href = data.authUrl
-    } else {
-      ElMessage.error(data.error || '获取授权链接失败')
-      loadingProvider.value = null
-    }
-  } catch (error) {
-    console.error('Login error:', error)
-    ElMessage.error('网络请求失败，请检查后端 API 是否正常运行')
-    loadingProvider.value = null
-  }
+const iconComponents = {
+  iconGithub,
+  iconGoogle,
+  iconGitee,
+  iconTelegram,
+  iconCloudflare,
+  iconNodeloc,
 }
+
+const {
+  providers,
+  loadingProvider,
+  handleLogin
+} = useOAuthProviders()
 </script>

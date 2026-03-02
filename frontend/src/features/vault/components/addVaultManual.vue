@@ -60,9 +60,9 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
-import { request } from '@/shared/utils/request'
 import { bytesToBase32 } from '@/shared/utils/totp'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
+import { vaultService } from '@/features/vault/service/vaultService'
 
 const emit = defineEmits(['success'])
 
@@ -106,10 +106,7 @@ const submitAddVault = async () => {
     if (valid) {
       submitting.value = true
       try {
-        const data = await request('/api/vault', {
-          method: 'POST',
-          body: JSON.stringify(newVault.value)
-        })
+        const data = await vaultService.createAccount(newVault.value)
         if (data.success) {
           ElMessage.success('账号添加成功！')
           newVault.value = { service: '', account: '', secret: '', category: '', digits: 6, period: 30, algorithm: 'SHA1' }

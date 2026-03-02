@@ -28,8 +28,9 @@
         </div>
       </div>
 
-      <!-- 1. 加载状态 (本地缓存尚未挂载，或者正在首次/后台请求时但无数据) -->
-      <div v-if="(isLoading || isFetching) && vault.length === 0" class="loading-state" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 400px; color: var(--el-text-color-secondary);">
+      <!-- 1. 加载状态 -->
+      <div v-if="(isInitializing || isLoading || isFetching) && vault.length === 0" class="loading-state" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 400px; color: var(--el-text-color-secondary);">
+
         <el-icon class="is-loading" :size="48" style="margin-bottom: 20px; color: var(--el-color-primary);"><Loading /></el-icon>
         <p style="font-size: 16px; letter-spacing: 1px;">数据获取中, 请稍候...</p>
       </div>
@@ -77,7 +78,7 @@
               </el-dropdown>
             </div>
             
-            <p class="vault-name">{{ vaultItem.account }}</p>
+            <p class="vault-name">{{ vaultItem.account?.includes(':') ? vaultItem.account.split(':').pop() : vaultItem.account }}</p>
             
             <div class="code-display-area">
               <div class="code-left">
@@ -170,334 +171,80 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, onMounted, onUnmounted, watch, computed, defineAsyncComponent, nextTick, triggerRef } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+/**
+ * 核心金库列表组件 (Vault List Root Component)
+ * 
+ * 架构说明 (Architecture Notes):
+ * 1. 离线优先与秒开 (Offline-First Initialization): 
+ *    `isInitializing` 状态拦截了组件初筛。生命周期 `onMounted` 时优先呼叫 `handleUnlocked` 读取
+ *    `localStorage` 加密缓存 (`vaultStore.getData()`)。读取闭环后关闭 `isInitializing` 使得 
+ *    UI 瞬间呈现历史数据，随后交由 Vue Query 在后台默默触发真实网络同步 (`fetchVault`) 更新状态，
+ *    达到丝滑“秒开”极致体验。
+ * 2. 消除瀑布流计算 (Heavy Compute Deferment): 
+ *    将获取到缓存后极其冗长的 Hash 计算任务 `updateVaultStatus()` 通过 `setTimeout(..., 0)`
+ *    推至浏览器的后续事件队列中，彻底让出 JavaScript 渲染主线程，保障金库大列表在手机端冷启动不白屏、不阻塞。
+ * 3. 循环依赖解构 (Dependency Inversion): 
+ *    鉴于获取数据的 `useVaultList` 和执行计算的 `useTotpTimer` 各自闭环又存在先后依赖，此处以
+ *    `afterLoadRef` 作媒介进行延迟绑定：
+ *    `useVaultList` (接收 `afterLoadRef`) -> `useTotpTimer` 实例生成 -> 绑定回调 ->
+ *    下一次 Vue Query 拉回新数据时，直接调用绑定的 `updateVaultStatus` 进行后台预运算。
+ */
+import { ref, onMounted } from 'vue'
 import { MoreFilled, Edit, Delete, Picture, View, Hide, CopyDocument, Loading, Search } from '@element-plus/icons-vue'
-import QRCode from 'qrcode'
-import { request } from '@/shared/utils/request'
 import { useLayoutStore } from '@/shared/stores/layoutStore'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
-import { generateTOTP } from '@/shared/utils/totp'
-import { copyToClipboard } from '@/shared/utils/common'
+import { useVaultList } from '@/features/vault/composables/useVaultList'
+import { useTotpTimer } from '@/features/vault/composables/useTotpTimer'
+import { useVaultActions } from '@/features/vault/composables/useVaultActions'
 
 const emit = defineEmits(['switch-tab'])
-const queryClient = useQueryClient()
-const vaultStore = useVaultStore()
 const layoutStore = useLayoutStore()
+const vaultStore = useVaultStore()
 
-// --- 状态定义 ---
-const vault = shallowRef([])
-const searchQuery = ref('')
-const pageSize = ref(12)
+// afterLoadRef 用于解决循环依赖：useVaultList 先于 useTotpTimer 创建，
+// 通过 ref 延迟绑定 updateVaultStatus，确保每次分页加载后立即刷新验证码
+const afterLoadRef = ref(null)
 
-// --- 批量操作 ---
-const selectedIds = ref([])
-const isBulkDeleting = ref(false)
+const {
+    vault, searchQuery, isLoading, isFetching, isFetchingNextPage,
+    hasNextPage, isLoadMoreDisabled, fetchVault, handleLoadMore
+} = useVaultList(afterLoadRef)
 
-// --- 弹窗状态 ---
-const showEditDialog = ref(false)
-const isEditing = ref(false)
-const editVaultData = ref({ id: '', service: '', account: '', category: '' })
+const { updateVaultStatus } = useTotpTimer(vault)
 
-const showQrDialog = ref(false)
-const currentQrItem = ref(null)
-const showSecret = ref(false)
-const qrCodeUrl = ref('')
+// 绑定数据加载后的回调（数据合并完成后立即触发 TOTP 计算，无需等待 1 秒间隔）
+afterLoadRef.value = updateVaultStatus
 
-let globalTimer = null
+const {
+    selectedIds, isBulkDeleting,
+    showEditDialog, isEditing, editVaultData,
+    showQrDialog, currentQrItem, showSecret, qrCodeUrl,
+    toggleSelection, selectAllLoaded, handleBulkDelete, copyCode,
+    submitEditVault, openQrDialog, copySecret, copyOtpUrl,
+    formatSecret, handleCommand,
+} = useVaultActions(fetchVault, vault)
 
-// --- 定时更新 (提升定义顺序) ---
-// 更新倒计时与验证码
-const updateVaultStatus = async (targetList) => {
-  // 支持传入特定列表进行预计算（用于渲染前），如果不传则默认更新当前显示的 vault
-  const list = Array.isArray(targetList) ? targetList : vault.value
-  if (!list || list.length === 0) return
+// mount 到 handleUnlocked 完成前保持 true，确保本地缓存读取期间显示 loading 动画
+const isInitializing = ref(true)
 
-  const now = Date.now() / 1000
-  
-  // 关键修复：使用 Promise.all 并行处理所有账号的计算，避免列表较长时串行 await 导致验证码生成延迟或卡顿
-  await Promise.all(list.map(async (acc) => {
-    const period = acc.period || 30
-    const remaining = Math.ceil(period - (now % period))
-    acc.remaining = remaining
-    acc.percentage = (remaining / period) * 100
-    
-    // 颜色逻辑
-    if (remaining > 10) acc.color = '#67C23A'
-    else if (remaining > 5) acc.color = '#E6A23C'
-    else acc.color = '#F56C6C'
-
-    // 计算当前验证码 (如果 epoch 变了或者还没计算)
-    const currentEpoch = Math.floor(now / period)
-    const algorithm = acc.algorithm ? acc.algorithm.replace('SHA', 'SHA-').replace('SHA--', 'SHA-') : 'SHA-1'
-    if (acc.lastEpoch !== currentEpoch || !acc.currentCode || acc.currentCode === '------') {
-       acc.currentCode = await generateTOTP(acc.secret, period, acc.digits, algorithm)
-       acc.lastEpoch = currentEpoch
-    }
-    
-    // 剩余5秒时计算下一个验证码
-    if (remaining <= 5) {
-       if (!acc.nextCode || acc.lastNextEpoch !== currentEpoch + 1) {
-           acc.nextCode = await generateTOTP(acc.secret, period, acc.digits, algorithm, 1)
-           acc.lastNextEpoch = currentEpoch + 1
-       }
-    } else {
-       acc.nextCode = null
-    }
-  }))
-
-  // 关键优化：因为 vault 是 shallowRef，必须在每轮更新完毕后执行一次通知
-  // 从而使得 1000 次深层属性变更合并成 1 次 UI 组件挂载重绘
-  if (list === vault.value) {
-    triggerRef(vault)
-  }
-}
-
-// --- 工具函数 ---
-let searchTimer = null
-
-// --- Vue Query 集成 ---
-
-// 1. 定义数据获取函数
-const fetchVaultPage = async ({ pageParam = 1 }) => {
-  // 如果未解锁，直接返回空
-  if (!vaultStore.isUnlocked) return { vault: [], pagination: { totalPages: 0 } }
-
-  const query = new URLSearchParams({
-    page: pageParam,
-    limit: pageSize.value,
-    search: searchQuery.value
-  }).toString()
-    
-  return await request(`/api/vault?${query}`)
-}
-
-// 2. 使用 useInfiniteQuery
-const { 
-  data, 
-  fetchNextPage, 
-  hasNextPage, 
-  isFetchingNextPage, 
-  isLoading, 
-  isFetching,
-  isError,
-  refetch 
-} = useInfiniteQuery({
-  queryKey: ['vault', searchQuery], // 搜索词变化自动触发重载
-  queryFn: fetchVaultPage,
-  getNextPageParam: (lastPage) => {
-    if (!lastPage || !lastPage.pagination) return undefined
-    const { page, totalPages } = lastPage.pagination
-    return page < totalPages ? page + 1 : undefined
-  },
-  enabled: computed(() => vaultStore.isUnlocked), // 仅在解锁后启用查询
-  staleTime: 0, // 始终视为过期，确保 invalidateQueries 能立即触发重新请求
-})
-
-// 3. 监听数据变化，同步到本地 vault 引用和保险箱
-watch(data, async (newData) => {
-  if (!newData) return
-
-  // 展平分页数据
-  const flatVault = newData.pages.flatMap(page => page.vault || [])
-  
-  // 智能合并：保留现有的 TOTP 计算状态 (currentCode, remaining 等)，仅更新静态字段
-  // 这样可以避免每次 fetch 导致倒计时重置
-  const merged = flatVault.map(newAcc => {
-    const existing = vault.value.find(a => a.id === newAcc.id)
-    if (existing) {
-      return { ...existing, ...newAcc }
-    }
-    // Initialize new vault with all reactive properties to ensure Vue tracks them
-    return {
-      ...newAcc,
-      currentCode: '------',
-      nextCode: null,
-      remaining: 30,
-      percentage: 0,
-      color: ''
-    }
-  })
-
-  // 1. Pre-calculate codes before assigning to the reactive ref
-  await updateVaultStatus(merged)
-  
-  // 2. Update the view
-  vault.value = merged
-  
-  // 3. Force trigger reactivity as a safeguard against missed updates
-  triggerRef(vault)
-
-  // 4. 加密保存到保险箱 (仅在无搜索词时保存，作为全量缓存)
-  if (!searchQuery.value && vaultStore.isUnlocked) {
-    try {
-      await vaultStore.saveData({ vault: merged })
-      vaultStore.clearDirty() // 此次获取的是最新数据，清除 dirty 标记
-    } catch (e) {
-      // Silently fail, or add more robust error handling if needed
-    }
-  }
-})
-
-// 5. 解锁回调
+// --- 解锁回调：离线优先，秒开首屏 ---
 const handleUnlocked = async () => {
-  // 若有未保存的变更，跳过旧缓存，直接等待服务器数据
-  if (vaultStore.isDirty) return
-
-  // 1. 优先加载离线数据，实现秒开 (移除耗时的 await updateVaultStatus 控制权)
-  const vaultData = await vaultStore.getData()
-  if (vaultData && vaultData.vault) {
-    vault.value = vaultData.vault
-    triggerRef(vault) // 瞬间触发 UI 大列表首屏渲染 (携带缓存旧状态)
-    
-    // 把耗时的 200次+ HMACS Hash 计算扔进异步宏任务/微任务中，让出关键渲染主线程
-    setTimeout(() => updateVaultStatus(), 0)
-  }
-  
-  // 2. Vue Query 的 enabled 变为 true，会自动触发网络请求更新数据
-}
-
-// 6. 滚动加载处理
-const isLoadMoreDisabled = computed(() => {
-  return isLoading.value || isFetchingNextPage.value || !hasNextPage.value || !vaultStore.isUnlocked || isError.value
-})
-
-const handleLoadMore = () => {
-  if (!isLoadMoreDisabled.value) {
-    fetchNextPage()
-  }
-}
-
-// 暴露给父组件的方法 (保持兼容性)
-defineExpose({ 
-  fetchVault: () => queryClient.invalidateQueries({ queryKey: ['vault'] })
-})
-
-watch(searchQuery, () => {
-  // Vue Query 会自动处理列表更新
-})
-
-// 批量选择
-const toggleSelection = (id) => {
-  const index = selectedIds.value.indexOf(id)
-  if (index > -1) selectedIds.value.splice(index, 1)
-  else selectedIds.value.push(id)
-}
-
-const selectAllLoaded = () => {
-  // 全选当前已加载的所有账号
-  selectedIds.value = vault.value.map(acc => acc.id)
-}
-
-// 批量删除
-const handleBulkDelete = async () => {
-  try {
-    await ElMessageBox.confirm(`确定要删除选中的 ${selectedIds.value.length} 个账号吗？`, '警告', { type: 'error' })
-    isBulkDeleting.value = true
-    const res = await request('/api/vault/batch-delete', {
-      method: 'POST',
-      body: JSON.stringify({ ids: selectedIds.value })
-    })
-    if (res.success) {
-      ElMessage.success(`成功删除了 ${res.count} 个账号`)
-      selectedIds.value = []
-      vaultStore.markDirty()
-      queryClient.invalidateQueries({ queryKey: ['vault'] }) // 强制过期，绕过 staleTime
-    }
-  } catch (e) {} finally { isBulkDeleting.value = false }
-}
-
-// 单个账号操作 (删除/编辑/导出)
-const handleCommand = async (command, item) => {
-  if (command === 'delete') {
     try {
-      await ElMessageBox.confirm(`确定删除 [${item.service}] 吗？`, '警告', { type: 'error' })
-      const data = await request(`/api/vault/${item.id}`, { method: 'DELETE' })
-      if (data.success) {
-        ElMessage.success('账号已删除')
-        vaultStore.markDirty()
-        queryClient.invalidateQueries({ queryKey: ['vault'] }) // 强制过期，绕过 staleTime
-      }
-    } catch (e) {}
-  } else if (command === 'edit') {
-    editVaultData.value = { ...item, category: item.category || '' }
-    showEditDialog.value = true
-  } else if (command === 'qr') {
-    currentQrItem.value = item
-    try {
-      const uri = getOtpAuthUrl(item)
-      qrCodeUrl.value = await QRCode.toDataURL(uri, { width: 200, margin: 1, errorCorrectionLevel: 'M' })
-      showQrDialog.value = true
-    } catch (e) {
-      ElMessage.error('二维码生成失败')
+        if (vaultStore.isDirty) return
+        const vaultData = await vaultStore.getData()
+        if (vaultData && vaultData.vault) {
+            vault.value = vaultData.vault
+            // 把耗时 TOTP 计算推进异步，让出关键渲染主线程
+            setTimeout(() => updateVaultStatus(), 0)
+        }
+    } finally {
+        isInitializing.value = false
     }
-  }
 }
 
-// 提交编辑
-const submitEditVault = async () => {
-  if (!editVaultData.value.service || !editVaultData.value.account) return ElMessage.warning('必填项不能为空')
-  isEditing.value = true
-  try {
-    const data = await request(`/api/vault/${editVaultData.value.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        service: editVaultData.value.service,
-        account: editVaultData.value.account,
-        category: editVaultData.value.category
-      })
-    })
-    if (data.success) {
-      ElMessage.success('账号修改成功')
-      showEditDialog.value = false
-      vaultStore.markDirty()
-      queryClient.invalidateQueries({ queryKey: ['vault'] }) // 强制过期，绕过 staleTime
-    }
-  } catch (e) {} finally { isEditing.value = false }
-}
+// 暴露给父组件的刷新方法（保持接口兼容）
+defineExpose({ fetchVault })
 
-// --- 辅助功能 ---
-const copyCode = async (item) => {
-  const code = (item.remaining <= 5 && item.nextCode) ? item.nextCode : item.currentCode
-  if (!code || code === '------') return
-  copyToClipboard(code, '验证码已复制')
-}
-
-const getOtpAuthUrl = (acc) => {
-  if (!acc) return ''
-  const label = encodeURIComponent(`${acc.service}:${acc.account}`)
-  const params = new URLSearchParams()
-  params.set('secret', acc.secret)
-  params.set('issuer', acc.service)
-  if (acc.algorithm) params.set('algorithm', acc.algorithm)
-  if (acc.digits) params.set('digits', acc.digits)
-  if (acc.period) params.set('period', acc.period)
-  return `otpauth://totp/${label}?${params.toString()}`
-}
-
-const copyOtpUrl = async () => {
-  const url = getOtpAuthUrl(currentQrItem.value)
-  copyToClipboard(url, 'otpauth已复制')
-}
-
-const formatSecret = (secret) => {
-  return secret ? secret.replace(/(.{4})/g, '$1 ').trim() : ''
-}
-
-const copySecret = async () => {
-  if (!currentQrItem.value?.secret) return
-  copyToClipboard(currentQrItem.value.secret, '密钥已复制')
-}
-
-onMounted(() => {
-  // 组件加载即尝试读取本地离线数据
-  handleUnlocked()
-  globalTimer = setInterval(updateVaultStatus, 1000)
-})
-
-onUnmounted(() => {
-  if (globalTimer) clearInterval(globalTimer)
-  if (searchTimer) clearTimeout(searchTimer)
-})
+onMounted(handleUnlocked)
 </script>
+

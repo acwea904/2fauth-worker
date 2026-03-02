@@ -154,203 +154,39 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
-import { ElMessage } from 'element-plus'
+import { defineAsyncComponent } from 'vue'
 import { CopyDocument, Refresh, Timer, Camera, CircleCheck, Download } from '@element-plus/icons-vue'
-import QRCode from 'qrcode'
-import { request } from '@/shared/utils/request'
-import { base32ToBytes, bytesToBase32, hexToBytes, bytesToHex, asciiToBytes, bytesToAscii, generateTOTP, parseOtpUri } from '@/shared/utils/totp'
 import { useQueryClient } from '@tanstack/vue-query'
 import { copyToClipboard, triggerDownload } from '@/shared/utils/common'
+import { useTotpToolbox } from '@/features/tools/composables/useTotpToolbox'
+import { useTotpToolboxActions } from '@/features/tools/composables/useTotpToolboxActions'
 
 const QrScanner = defineAsyncComponent(() => import('@/shared/components/qrScanner.vue'))
-
-// --- State ---
 const queryClient = useQueryClient()
-const activeTab = ref('base32')
-const secretBase32 = ref('')
-const secretHex = ref('')
-const secretAscii = ref('')
 
-// Metadata & Settings
-const issuer = ref('2FAuth-Tool')
-const account = ref('TestUser')
-const algorithm = ref('SHA-1')
-const digits = ref(6)
-const period = ref(30)
-const timeOffset = ref(0)
+// 1. 获取核心工具箱状态机 (纯运算逻辑与时钟循环)
+const toolbox = useTotpToolbox()
+const {
+    activeTab,
+    secretBase32, secretHex, secretAscii,
+    issuer, account, algorithm, digits, period, timeOffset,
+    currentUri, currentCode, remaining,
+    handleBase32Input, handleHexInput, handleAsciiInput, updateUri,
+    refreshBase32, refreshHex, refreshAscii,
+    adjustTime
+} = toolbox
 
-const qrCodeUrl = ref('')
-const currentUri = ref('')
-const currentCode = ref('')
-const remaining = ref(30)
-const isSaving = ref(false)
-const showScanner = ref(false)
-let timer = null
-
-// --- Handlers ---
-const updateAll = async (sourceType) => {
-  try {
-    // 1. Sync Inputs
-    if (sourceType === 'base32') {
-      const bytes = base32ToBytes(secretBase32.value)
-      secretHex.value = bytesToHex(bytes)
-      secretAscii.value = bytesToAscii(bytes)
-    } else if (sourceType === 'hex') {
-      const bytes = hexToBytes(secretHex.value)
-      if (bytes.length > 0) secretBase32.value = bytesToBase32(bytes)
-      secretAscii.value = bytesToAscii(bytes)
-    } else if (sourceType === 'ascii') {
-      const bytes = asciiToBytes(secretAscii.value)
-      secretBase32.value = bytesToBase32(bytes)
-      secretHex.value = bytesToHex(bytes)
-    }
-
-    // 2. Generate QR
-    if (secretBase32.value) {
-      const label = encodeURIComponent(`${issuer.value}:${account.value}`)
-      const algoParam = algorithm.value.replace('-', '') // SHA-1 -> SHA1
-      const uri = `otpauth://totp/${label}?secret=${secretBase32.value}&issuer=${encodeURIComponent(issuer.value)}&algorithm=${algoParam}&period=${period.value}&digits=${digits.value}`
-      currentUri.value = uri
-      qrCodeUrl.value = await QRCode.toDataURL(uri, { width: 200, margin: 1 })
-    } else {
-      qrCodeUrl.value = ''
-      currentUri.value = ''
-      currentCode.value = ''
-    }
-
-    // 3. Update TOTP immediately
-    calcTotp()
-  } catch (e) {
-    console.error(e)
-    // Ignore decoding errors during typing
-  }
-}
-
-const handleBase32Input = () => updateAll('base32')
-const handleHexInput = () => updateAll('hex')
-const handleAsciiInput = () => updateAll('ascii')
-const updateUri = () => updateAll('settings')
-
-const refreshBase32 = () => {
-  // Generate 20 random bytes (160 bits) - Standard high security
-  const array = new Uint8Array(20)
-  window.crypto.getRandomValues(array)
-  secretBase32.value = bytesToBase32(array)
-  updateAll('base32')
-  ElMessage.success('已生成新的随机密钥')
-}
-
-const refreshHex = () => {
-  // Generate 20 random bytes
-  const array = new Uint8Array(20)
-  window.crypto.getRandomValues(array)
-  secretHex.value = bytesToHex(array)
-  updateAll('hex')
-  ElMessage.success('已生成新的 Hex 密钥')
-}
-
-const refreshAscii = () => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()'
-  let result = ''
-  const array = new Uint32Array(20)
-  window.crypto.getRandomValues(array)
-  for (let i = 0; i < 20; i++) result += chars[array[i] % chars.length]
-  secretAscii.value = result
-  updateAll('ascii')
-  ElMessage.success('已生成随机 ASCII 密钥')
-}
-
-// --- TOTP Calculation ---
-const calcTotp = async () => {
-  if (!secretBase32.value) return
-  
-  const p = period.value
-  const now = (Date.now() / 1000) + timeOffset.value
-  const epoch = Math.floor(now / p)
-  remaining.value = Math.ceil(p - (now % p))
-
-  try {
-    // 计算周期偏移量 (Time Travel)
-    const periodOffset = Math.floor(timeOffset.value / p)
-    currentCode.value = await generateTOTP(secretBase32.value, p, digits.value, algorithm.value, periodOffset)
-  } catch (e) {
-    currentCode.value = 'ERROR'
-  }
-}
-
-// --- Time Travel ---
-const adjustTime = (delta, reset = false) => {
-  if (reset) timeOffset.value = 0
-  else timeOffset.value += delta
-  calcTotp()
-}
-
-// --- Import QR ---
-const handleScanSuccess = (uri) => {
-  showScanner.value = false
-  handleParsedUri(uri)
-}
-
-const handleParsedUri = (uri) => {
-  const parsed = parseOtpUri(uri)
-  if (parsed) {
-    if (parsed.secret) {
-      secretBase32.value = parsed.secret
-      updateAll('base32')
-    }
-    if (parsed.service) issuer.value = parsed.service
-    if (parsed.account) account.value = parsed.account
-    if (parsed.digits) digits.value = parsed.digits
-    if (parsed.period) period.value = parsed.period
-    if (parsed.algorithm) algorithm.value = parsed.algorithm
-    
-    updateAll('settings')
-    ElMessage.success('二维码解析成功')
-  } else {
-    ElMessage.warning('无效的 OTP URI')
-  }
-}
-
-// --- Save to Vault ---
-const saveToVault = async () => {
-  if (!secretBase32.value) return ElMessage.warning('密钥不能为空')
-  if (!issuer.value || !account.value) return ElMessage.warning('请填写服务商和账号')
-  
-  isSaving.value = true
-  try {
-    const res = await request('/api/vault', {
-      method: 'POST',
-      body: JSON.stringify({
-        service: issuer.value,
-        account: account.value,
-        secret: secretBase32.value,
-        digits: digits.value,
-        period: period.value,
-        category: '工具箱添加'
-      })
-    })
-    if (res.success) {
-      ElMessage.success('已保存到我的账户')
-      // 刷新账号列表缓存
-      queryClient.invalidateQueries(['vault'])
-    }
-  } catch (e) {
-    // Error handled by request
-  } finally {
-    isSaving.value = false
-  }
-}
+// 2. 获取外部副作用处理器 (QR生成、扫码注入与后端保存)
+const {
+    isSaving,
+    showScanner,
+    qrCodeUrl,
+    handleScanSuccess,
+    saveToVault
+} = useTotpToolboxActions(toolbox, queryClient)
 
 const downloadQrCode = () => {
-  if (!qrCodeUrl.value) return
-  triggerDownload(qrCodeUrl.value, `2fa-qr-${account.value || 'code'}.png`)
+    if (!qrCodeUrl.value) return
+    triggerDownload(qrCodeUrl.value, `2fa-qr-${account.value || 'code'}.png`)
 }
-
-onMounted(() => {
-  refreshBase32() // Init with a random key
-  timer = setInterval(calcTotp, 1000)
-})
-
-onUnmounted(() => { if (timer) clearInterval(timer) })
 </script>

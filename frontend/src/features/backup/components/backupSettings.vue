@@ -193,67 +193,26 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, CircleCheck, Timer, Loading } from '@element-plus/icons-vue'
-import { request } from '@/shared/utils/request'
 import { useLayoutStore } from '@/shared/stores/layoutStore'
-import { useVaultStore } from '@/features/vault/store/vaultStore'
-import { migrationService } from '@/features/backup/service/migrationService'
+import { useBackupProviders } from '@/features/backup/composables/useBackupProviders'
+import { useBackupActions } from '@/features/backup/composables/useBackupActions'
 
 const emit = defineEmits(['restore-success'])
 const layoutStore = useLayoutStore()
-const vaultStore = useVaultStore()
 
-// --- 状态定义 ---
-const providers = ref([])
-const isLoading = ref(false)
+const {
+  providers, isLoading, showConfigDialog, isEditing, isTesting, isSaving, form,
+  hasExistingAutoPwd, configUseExistingAutoPwd, fetchProviders, openAddDialog,
+  editProvider, testConnection, saveProvider, deleteProvider
+} = useBackupProviders()
 
-// 配置弹窗
-const showConfigDialog = ref(false)
-const isEditing = ref(false)
-const isTesting = ref(false)
-const isSaving = ref(false)
-const form = ref({ type: 'webdav', name: '', config: { url: '', username: '', password: '', saveDir: '/', endpoint: '', bucket: '', region: 'auto', accessKeyId: '', secretAccessKey: '' }, autoBackup: false, autoBackupPassword: '', autoBackupRetain: 30 })
-const currentProviderId = ref(null)
-const hasExistingAutoPwd = ref(false)
-const configUseExistingAutoPwd = ref(false)
-
-// 备份/恢复弹窗
-const showBackupDialog = ref(false)
-const backupPassword = ref('')
-const isBackingUp = ref(false)
-const useAutoPassword = ref(false)
-const currentActionProvider = ref(null)
-
-const showRestoreListDialog = ref(false)
-const isLoadingFiles = ref(false)
-const backupFiles = ref([])
-const showRestoreConfirmDialog = ref(false)
-const restorePassword = ref('')
-const selectedFile = ref(null)
-const isRestoring = ref(false)
-
-// --- API 交互 ---
-const fetchProviders = async () => {
-  // 1. 离线优先：尝试加载加密缓存
-  const cachedEncrypted = await vaultStore.getEncryptedBackupProviders()
-  if (cachedEncrypted && Array.isArray(cachedEncrypted)) {
-    providers.value = cachedEncrypted
-    // 有缓存时静默更新，不转圈圈
-  } else {
-    isLoading.value = true
-  }
-
-  try {
-    const res = await request('/api/backups/providers')
-    if (res.success) {
-      providers.value = res.providers
-      // 2. 更新加密缓存
-      await vaultStore.saveEncryptedBackupProviders(res.providers)
-    }
-  } finally { isLoading.value = false }
-}
+const {
+  showBackupDialog, backupPassword, isBackingUp, useAutoPassword, currentActionProvider,
+  openBackupDialog, handleBackup, showRestoreListDialog, isLoadingFiles, backupFiles,
+  showRestoreConfirmDialog, restorePassword, selectedFile, isRestoring, openRestoreDialog,
+  selectRestoreFile, handleRestore
+} = useBackupActions(emit, fetchProviders)
 
 const getProviderTypeTag = (type) => type === 'webdav' ? 'primary' : (type === 's3' ? 'warning' : 'info')
 
@@ -264,179 +223,68 @@ const formatSize = (bytes) => {
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
-
-const openAddDialog = () => {
-  isEditing.value = false
-  form.value = { type: 'webdav', name: '', config: { url: '', username: '', password: '', saveDir: '/', endpoint: '', bucket: '', region: 'auto', accessKeyId: '', secretAccessKey: '' }, autoBackup: false, autoBackupPassword: '', autoBackupRetain: 30 }
-  hasExistingAutoPwd.value = false
-  configUseExistingAutoPwd.value = false
-  showConfigDialog.value = true
-}
-
-const editProvider = (provider) => {
-  isEditing.value = true
-  currentProviderId.value = provider.id
-  form.value = JSON.parse(JSON.stringify({
-    type: provider.type,
-    name: provider.name,
-    config: provider.config,
-    autoBackup: !!provider.auto_backup,
-    autoBackupPassword: '', // 编辑时不回显密码，留空表示不修改
-    autoBackupRetain: provider.auto_backup_retain ?? 30
-  }))
-  hasExistingAutoPwd.value = !!provider.auto_backup_password
-  configUseExistingAutoPwd.value = true // 默认保持原密码
-  showConfigDialog.value = true
-}
-
-const validateForm = () => {
-  if (!form.value.name) return '请输入名称'
-  const c = form.value.config
-  if (form.value.type === 'webdav') {
-    if (!c.url) return '请输入 WebDAV 地址'
-    if (!c.username) return '请输入用户名'
-    if (!c.password) return '请输入密码'
-  } else if (form.value.type === 's3') {
-    if (!c.endpoint) return '请输入 Endpoint'
-    if (!c.bucket) return '请输入 Bucket'
-    if (!c.accessKeyId) return '请输入 Access Key ID'
-    if (!c.secretAccessKey) return '请输入 Secret Access Key'
-  }
-  
-  if (form.value.autoBackup) {
-    // 如果是编辑模式且有旧密码，并且用户选择保持原密码，则跳过校验
-    if (isEditing.value && hasExistingAutoPwd.value && configUseExistingAutoPwd.value) {
-      return null
-    }
-    // 其他情况（新增、编辑无旧密码、编辑选择设置新密码）都必须校验
-    if (!form.value.autoBackupPassword || form.value.autoBackupPassword.length < 12) {
-      return '自动备份密码长度必须至少 12 位'
-    }
-  }
-  return null
-}
-
-const testConnection = async () => {
-  const error = validateForm()
-  if (error) return ElMessage.warning(error)
-
-  isTesting.value = true
-  try {
-    const res = await request('/api/backups/providers/test', {
-      method: 'POST', body: JSON.stringify({ type: form.value.type, config: form.value.config })
-    })
-    if (res.success) ElMessage.success('连接成功')
-  } catch (e) {} finally { isTesting.value = false }
-}
-
-const saveProvider = async () => {
-  const error = validateForm()
-  if (error) return ElMessage.warning(error)
-
-  // 若保持原密码，清空密码字段避免覆盖
-  if (isEditing.value && hasExistingAutoPwd.value && configUseExistingAutoPwd.value) {
-    form.value.autoBackupPassword = ''
-  }
-
-  isSaving.value = true
-  try {
-    const url = isEditing.value ? `/api/backups/providers/${currentProviderId.value}` : '/api/backups/providers'
-    const method = isEditing.value ? 'PUT' : 'POST'
-    const res = await request(url, { method, body: JSON.stringify(form.value) })
-    if (res.success) {
-      ElMessage.success('保存成功')
-      showConfigDialog.value = false
-      fetchProviders()
-    }
-  } catch (e) {} finally { isSaving.value = false }
-}
-
-const deleteProvider = async (provider) => {
-  try {
-    await ElMessageBox.confirm('确定删除该备份源吗？', '警告', { type: 'warning' })
-    await request(`/api/backups/providers/${provider.id}`, { method: 'DELETE' })
-    fetchProviders()
-  } catch (e) {}
-}
-
-const openBackupDialog = (provider) => {
-  currentActionProvider.value = provider
-  backupPassword.value = ''
-  useAutoPassword.value = !!provider.auto_backup
-  showBackupDialog.value = true
-}
-
-const handleBackup = async () => {
-  if (!useAutoPassword.value && backupPassword.value.length < 12) {
-    return ElMessage.warning('密码至少12位')
-  }
-  
-  const pwdToSend = useAutoPassword.value ? '' : backupPassword.value
-  
-  isBackingUp.value = true
-  try {
-    const res = await request(`/api/backups/providers/${currentActionProvider.value.id}/backup`, {
-      method: 'POST', body: JSON.stringify({ password: pwdToSend })
-    })
-    if (res.success) {
-      ElMessage.success('备份成功')
-      showBackupDialog.value = false
-      fetchProviders() // Refresh status
-    }
-  } catch (e) {} finally { isBackingUp.value = false }
-}
-
-const openRestoreDialog = async (provider) => {
-  currentActionProvider.value = provider
-  showRestoreListDialog.value = true
-  isLoadingFiles.value = true
-  try {
-    const res = await request(`/api/backups/providers/${provider.id}/files`)
-    if (res.success) backupFiles.value = res.files
-  } finally { isLoadingFiles.value = false }
-}
-
-const selectRestoreFile = (file) => {
-  selectedFile.value = file
-  restorePassword.value = ''
-  showRestoreConfirmDialog.value = true
-}
-
-const handleRestore = async () => {
-  isRestoring.value = true
-  try {
-    // 1. 下载加密文件
-    const downloadRes = await request(`/api/backups/providers/${currentActionProvider.value.id}/download`, {
-      method: 'POST', body: JSON.stringify({ 
-        filename: selectedFile.value.filename
-      })
-    })
-    
-    // 2. 前端解密
-    let contentToDecrypt = downloadRes.content
-    try {
-      // 备份文件是 JSON 包装格式，需要提取内部的 data 字段 (Base64)
-      // 修复：如果 contentToDecrypt 已经是对象，直接使用，避免 JSON.parse([object Object]) 报错
-      const json = typeof contentToDecrypt === 'string' ? JSON.parse(contentToDecrypt) : contentToDecrypt
-      if (json && json.encrypted && json.data) {
-        contentToDecrypt = json.data
-      }
-    } catch (e) {}
-    const vault = await migrationService.parseImportData(contentToDecrypt, 'encrypted', restorePassword.value)
-    
-    // 3. 保存数据
-    const saveRes = await migrationService.saveImportedVault(vault)
-    
-    if (saveRes.success) {
-      ElMessage.success(`恢复成功，已导入 ${saveRes.count} 个账号`)
-      showRestoreConfirmDialog.value = false
-      showRestoreListDialog.value = false
-      emit('restore-success')
-    }
-  } catch (e) {
-    ElMessage.error(e.message || '恢复失败')
-  } finally { isRestoring.value = false }
-}
-
-onMounted(fetchProviders)
 </script>
+
+<style scoped>
+.backup-container {
+  padding: 10px;
+}
+
+.header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.provider-card {
+  transition: transform 0.2s;
+}
+
+.provider-card:hover {
+  transform: translateY(-5px);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.provider-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.provider-name {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.status-text {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 20px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 5px;
+  line-height: 1.4;
+}
+
+.success-tip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--el-color-success);
+  font-size: 13px;
+}
+</style>

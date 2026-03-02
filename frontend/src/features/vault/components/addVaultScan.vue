@@ -15,9 +15,9 @@
 <script setup>
 import { h, defineAsyncComponent } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { request } from '@/shared/utils/request'
 import { parseOtpUri } from '@/shared/utils/totp'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
+import { vaultService } from '@/features/vault/service/vaultService'
 
 const QrScanner = defineAsyncComponent(() => import('@/shared/components/qrScanner.vue'))
 
@@ -60,10 +60,7 @@ const handleScanSuccess = async (uri) => {
       }
     )
 
-    const addData = await request('/api/vault/add-from-uri', {
-      method: 'POST',
-      body: JSON.stringify({ uri, category: '手机扫码' })
-    })
+    const addData = await vaultService.addFromUri(uri, '手机扫码')
 
     if (addData.success) {
       ElMessage.success('扫码账号添加成功！')

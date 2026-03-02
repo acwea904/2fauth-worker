@@ -1166,3 +1166,10 @@ main {
 .upload-placeholder:hover {
   color: var(--el-color-primary);
 }
+
+@media (max-width: 768px) {
+  /* 修复 el-dialog 在移动端固定宽溢出 */
+  .el-dialog {
+    width: 90% !important;
+  }
+}

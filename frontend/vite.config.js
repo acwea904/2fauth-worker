@@ -36,22 +36,35 @@ export default defineConfig({
         enabled: true
       },
       manifest: {
-        name: '2FAuth Worker - Serverless 2FA Manager',
-        short_name: '2FAuth',
-        description: 'A secure, serverless 2FA management tool.',
+        id: '/',
+        name: '2FAuth Worker',
+        short_name: '2FAuth Worker',
+        description: 'A Secure 2FA Management Tool',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
+        orientation: 'portrait',
+        start_url: '/',
+        scope: '/',
+        categories: ['utilities', 'security'],
         icons: [
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       },

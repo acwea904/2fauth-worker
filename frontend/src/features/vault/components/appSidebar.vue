@@ -115,7 +115,7 @@ import {
 } from '@element-plus/icons-vue'
 import { useLayoutStore } from '@/shared/stores/layoutStore'
 import { useThemeStore } from '@/shared/stores/themeStore'
-import { useUserStore } from '@/features/auth/store/userStore'
+import { useAuthUserStore } from '@/features/auth/store/authUserStore'
 
 const props = defineProps({
   activeTab: {
@@ -128,7 +128,7 @@ const emit = defineEmits(['select'])
 
 const layoutStore = useLayoutStore()
 const themeStore = useThemeStore()
-const userStore = useUserStore()
+const authUserStore = useAuthUserStore()
 const router = useRouter()
 
 const isCollapse = ref(localStorage.getItem('sidebar_collapse') === 'true')
@@ -148,7 +148,7 @@ const handleLogout = async () => {
   if (layoutStore.showMobileMenu) {
     layoutStore.showMobileMenu = false
   }
-  await userStore.logout()
+  await authUserStore.logout()
   router.replace('/login')
   ElMessage.success('已安全退出')
 }

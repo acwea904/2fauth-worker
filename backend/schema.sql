@@ -33,3 +33,13 @@ CREATE TABLE IF NOT EXISTS backup_providers (
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_vault_service ON vault(service);
 CREATE INDEX IF NOT EXISTS idx_vault_created_at ON vault(created_at DESC);
+
+-- Remove any existing duplicates before enforcing unique constraint; keep the earliest
+DELETE FROM vault
+WHERE rowid NOT IN (
+    SELECT MIN(rowid)
+    FROM vault
+    GROUP BY lower(service), lower(account)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS vault_service_account_uq ON vault(lower(service), lower(account));

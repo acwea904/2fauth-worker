@@ -6,14 +6,18 @@
     "deploy": "wrangler deploy --minify"
   },
   "dependencies": {
-    "aws4fetch": "^1.0.19",
-    "drizzle-orm": "^0.30.9",
-    "hono": "^4.11.10",
+    "aws4fetch": "^1.0.20",
+    "drizzle-orm": "^0.45.1",
+    "hono": "^4.12.3",
     "webdav": "^5.9.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260226.1",
-    "drizzle-kit": "^0.20.14",
-    "wrangler": "^3.0.0"
+    "drizzle-kit": "^0.31.9",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.69.0"
+  },
+  "overrides": {
+    "esbuild": ">=0.25.0"
   }
 }

@@ -24,9 +24,26 @@ themeStore.initTheme()
 // PWA Service Worker 注册
 registerSW({
   onOfflineReady() {
-    ElMessage.success({
-      message: '应用已缓存，支持离线访问',
-      duration: 3000
+    import('element-plus').then(({ ElNotification }) => {
+      ElNotification({
+        title: '更新可用',
+        message: `
+          <div style="line-height: 1.5; font-size: 14px; margin-bottom: 5px;">
+            🎉 Cloudflare Worker 新部署已就绪！
+          </div>
+          <div>
+            <button 
+              style="background: var(--el-color-primary); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;"
+              onclick="window.location.reload()"
+            >
+              立即刷新
+            </button>
+          </div>
+        `,
+        dangerouslyUseHTMLString: true,
+        type: 'success',
+        duration: 0
+      })
     })
   },
 })

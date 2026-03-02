@@ -5,7 +5,7 @@
         &copy;{{ new Date().getFullYear() }} <a href="https://github.com/nap0o/2fauth-worker" target="_blank" rel="noopener noreferrer">2FAuth Worker</a>
         <span v-if="!layoutStore.isMobile">
           <span class="divider">|</span>
-          Serverless 2FA Manager
+          A Secure 2FA Management Tool
         </span>
         <span v-if="commitHash && commitHash !== 'unknown'">
           <span class="divider">|</span>

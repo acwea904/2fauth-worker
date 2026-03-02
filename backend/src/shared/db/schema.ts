@@ -1,6 +1,8 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 // 1. 金库项目表 (Vault Items -> mapped to 'vault' table in D1)
+// 注意：唯一索引在 D1 上需手动创建，通过迁移命令运行一次即可。
+// 该项目使用 SQLite schema 定义仅描述列，复杂索引/约束由数据库层管理。
 export const vault = sqliteTable('vault', {
   id: text('id').primaryKey(), // UUID
   service: text('service').notNull(),

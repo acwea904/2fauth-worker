@@ -61,10 +61,13 @@ export async function batchInsertVaultItems(
         };
     }));
 
-    // 2. 逐行写入：D1 每条 SQL 最多 100 个绑定参数，vault 表约 12 列
-    // 单行插入 = 12 变量，远低于限制，彻底规避超限问题
-    for (const item of preparedItems) {
-        await dbClient.insert(schema.vault).values(item).run();
+    // 2. 批量写入：使用 D1 的 batch 功能避免连接超时。
+    // 分批写入，每批最多 50 条。
+    const CHUNK_SIZE = 50;
+    for (let i = 0; i < preparedItems.length; i += CHUNK_SIZE) {
+        const chunk = preparedItems.slice(i, i + CHUNK_SIZE);
+        const stmts = chunk.map(item => dbClient.insert(schema.vault).values(item));
+        await dbClient.batch(stmts as any);
     }
 
 
