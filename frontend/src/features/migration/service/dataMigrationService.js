@@ -10,6 +10,15 @@ import { migrationError } from '@/shared/utils/errors/migrationError'
 import jsQR from 'jsqr'
 import initSqlJs from 'sql.js'
 
+// 2FAS 加密备份的固定参数（官方格式标准）
+const _2FAS_CRYPTO_CONFIG = {
+    SALT_LEN: 32,
+    IV_LEN: 12,
+    ITERATIONS: 10000,
+    ALGORITHM: 'aes-256-gcm',
+    KDF: 'PBKDF2'
+}
+
 /**
  * 数据迁移服务核心控制器
  * 负责智能分发不同来源与格式的导入导出请求
@@ -19,7 +28,7 @@ export const dataMigrationService = {
      * 智能识别导入内容或文件的类型
      * @param {string|ArrayBuffer|Uint8Array} content - 文件文本内容或二进制数据
      * @param {string} filename - 文件名
-     * @returns {'bwauth_csv'|'generic_csv'|'text'|'bwauth_json'|'encrypted'|'json'|'2fas'|'aegis'|'aegis_encrypted'|'phonefactor'|'unknown'} 返回类型标识
+     * @returns {'bwauth_csv'|'generic_csv'|'text'|'bwauth_json'|'encrypted'|'json'|'2fas'|'2fas_encrypted'|'aegis'|'aegis_encrypted'|'phonefactor'|'unknown'} 返回类型标识
      */
     detectFileType(content, filename) {
         // 如果是二进制数据，尝试用更宽容的方式判断 PhoneFactor
@@ -72,10 +81,12 @@ export const dataMigrationService = {
                 if (Array.isArray(json.items) && json.items.length > 0 && json.items[0].login && json.items[0].login.totp) return 'bwauth_json'
                 if (json.encrypted === true && json.app === '2fauth') return 'encrypted'
                 if (json.app === '2fauth' || Array.isArray(json.accounts) || Array.isArray(json.vault) || Array.isArray(json.secrets)) return 'json'
+                // 2FAS encrypted: schemaVersion + servicesEncrypted（colon-separated salt:iv:cipher）
+                if (json.schemaVersion && json.servicesEncrypted && typeof json.servicesEncrypted === 'string') return '2fas_encrypted'
                 if (json.schemaVersion && Array.isArray(json.services)) return '2fas'
                 if (json.version === 1 && json.db && typeof json.db === 'object' && Array.isArray(json.db.entries)) return 'aegis' // Aegis unencrypted
                 if (json.version === 1 && json.header && json.db && typeof json.db === 'string') return 'aegis_encrypted'
-                if (json.version === 1 && typeof json.salt === 'string' && typeof json.content === 'string') return 'proton'
+                if (json.version === 1 && typeof json.salt === 'string' && typeof json.content === 'string') return 'proton_encrypted'
             }
         }
 
@@ -433,6 +444,183 @@ export const dataMigrationService = {
     },
 
     /**
+     * 3.0 解密 2FAS 加密备份文件
+     * @param {string} password - 用户输入的密码
+     * @param {Object} encryptedJson - 2FAS 备份 JSON 对象（包含 servicesEncrypted 字段）
+     * @returns {Promise<Object[]>} 标准化的 2FAS 账户列表
+     * @throws {migrationError}
+     */
+    async decrypt2FasEncrypted(password, encryptedJson) {
+        try {
+            const servicesEncryptedStr = encryptedJson.servicesEncrypted
+            if (!servicesEncryptedStr || typeof servicesEncryptedStr !== 'string') {
+                throw new migrationError('无效的 2FAS 加密数据：找不到 servicesEncrypted 字段', 'INVALID_2FAS_ENCRYPTED')
+            }
+
+            // 解析 colon-separated 格式，允许更多冒号并将剩余部分视为密文
+            const rawParts = servicesEncryptedStr.split(':')
+            if (rawParts.length < 3) {
+                throw new migrationError('无效的 2FAS 加密格式：应为 salt:iv:ciphertext', 'INVALID_2FAS_FORMAT')
+            }
+            const parts = [rawParts[0], rawParts[1], rawParts.slice(2).join(':')]
+
+            // Base64 decode（去除空格，处理标准 base64 格式）
+            const bufs = parts.map(p => Uint8Array.from(atob(p.replace(/\s+/g, '')), c => c.charCodeAt(0)))
+
+            // Helper to concatenate multiple Uint8Arrays
+            const concatBufs = (arr) => {
+                const total = arr.reduce((sum, b) => sum + b.length, 0)
+                const res = new Uint8Array(total)
+                let off = 0
+                for (const b of arr) {
+                    res.set(b, off)
+                    off += b.length
+                }
+                return res
+            }
+
+            let actualSalt, actualIv, actualCipher
+
+            // 1. 先尝试简单规则：先定位 IV，再把剩余数据中较短的当作 salt，剩余全部当作 cipher
+            const ivIndex = bufs.findIndex(b => b.length === _2FAS_CRYPTO_CONFIG.IV_LEN)
+            if (ivIndex !== -1) {
+                actualIv = bufs.splice(ivIndex, 1)[0]
+                if (bufs.length > 0) {
+                    // 选取最短的剩余部分作为 salt（cipher 往往远大于 salt）
+                    let saltIdx = 0
+                    for (let i = 1; i < bufs.length; i++) {
+                        if (bufs[i].length < bufs[saltIdx].length) saltIdx = i
+                    }
+                    actualSalt = bufs.splice(saltIdx, 1)[0]
+                    // 剩余的部分拼接成 cipher
+                    actualCipher = bufs.length === 1 ? bufs[0] : concatBufs(bufs)
+                }
+            }
+
+            if (!actualSalt || !actualIv || !actualCipher) {
+                // 简单规则失败时回退到旧的排列检测逻辑
+                let found = false
+                const allBufs = bufs.slice()
+                const permutations = [
+                    { salt: bufs[1], iv: bufs[2], cipher: bufs[0], name: 'bufs[1]=salt, bufs[2]=iv, bufs[0]=cipher' },
+                    { salt: bufs.length > 1 && bufs[1].length >= 44 ? bufs[1].slice(0, 32) : null,
+                      iv: bufs.length > 1 && bufs[1].length >= 44 ? bufs[1].slice(32, 44) : null,
+                      cipher: bufs[0],
+                      name: 'salt/iv extracted from bufs[1]' },
+                    { salt: bufs[0].slice(0, 32), iv: bufs[0].slice(32, 44), cipher: bufs[0].slice(44),
+                      name: 'salt/iv extracted from bufs[0]' }
+                ]
+
+                for (const perm of permutations) {
+                    if (!perm.salt || !perm.iv || !perm.cipher) continue
+                    if (perm.iv.length !== _2FAS_CRYPTO_CONFIG.IV_LEN) continue
+
+                    try {
+                        const testPasswordBuf = new TextEncoder().encode(password)
+                        const testKeyMaterial = await crypto.subtle.importKey('raw', testPasswordBuf, { name: 'PBKDF2' }, false, ['deriveKey'])
+                        const testKey = await crypto.subtle.deriveKey(
+                            { name: 'PBKDF2', salt: perm.salt, iterations: _2FAS_CRYPTO_CONFIG.ITERATIONS, hash: 'SHA-256' },
+                            testKeyMaterial,
+                            { name: 'AES-GCM', length: 256 },
+                            false,
+                            ['decrypt']
+                        )
+
+                        if (perm.cipher.length >= 16) {
+                            const testAuthTag = perm.cipher.slice(perm.cipher.length - 16)
+                            const testEncData = perm.cipher.slice(0, perm.cipher.length - 16)
+                            const testDecrypted = await crypto.subtle.decrypt(
+                                { name: 'AES-GCM', iv: perm.iv },
+                                testKey,
+                                new Uint8Array([...testEncData, ...testAuthTag])
+                            )
+                            const testPlain = new TextDecoder().decode(testDecrypted)
+                            JSON.parse(testPlain)
+
+                            actualSalt = perm.salt
+                            actualIv = perm.iv
+                            actualCipher = perm.cipher
+                            found = true
+                            console.debug('[decrypt2FasEncrypted] permutation succeeded with:', perm.name)
+                            break
+                        }
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+
+                if (!found && !actualSalt) {
+                    // 回退最保守的顺序
+                    actualSalt = bufs[0]
+                    actualIv = bufs[1]
+                    actualCipher = bufs[2]
+                    if (actualSalt.length !== _2FAS_CRYPTO_CONFIG.SALT_LEN && actualIv.length === _2FAS_CRYPTO_CONFIG.SALT_LEN) {
+                        [actualSalt, actualIv] = [actualIv, actualSalt]
+                    }
+                    if (actualIv.length !== _2FAS_CRYPTO_CONFIG.IV_LEN && actualCipher.length === _2FAS_CRYPTO_CONFIG.IV_LEN) {
+                        [actualIv, actualCipher] = [actualCipher, actualIv]
+                    }
+                }
+            }
+
+            console.debug('[decrypt2FasEncrypted] chosen mapping lengths salt,iv,cipher=', actualSalt?.length, actualIv?.length, actualCipher?.length)
+
+            // 验证最终长度：salt 至少保持合理长度（通常 >=16），iv 必须为12字节
+            if (actualSalt.length < 16) {
+                throw new migrationError(`salt 长度过短：${actualSalt.length}`, 'INVALID_SALT_LEN')
+            }
+            if (actualIv.length !== _2FAS_CRYPTO_CONFIG.IV_LEN) {
+                throw new migrationError(`IV 长度错误：期望 ${_2FAS_CRYPTO_CONFIG.IV_LEN}，实际 ${actualIv.length}`, 'INVALID_IV_LEN')
+            }
+
+            // PBKDF2 派生密钥
+            const passwordBuf = new TextEncoder().encode(password)
+            const keyMaterial = await crypto.subtle.importKey('raw', passwordBuf, { name: 'PBKDF2' }, false, ['deriveKey'])
+            const key = await crypto.subtle.deriveKey(
+                {
+                    name: 'PBKDF2',
+                    salt: actualSalt,
+                    iterations: _2FAS_CRYPTO_CONFIG.ITERATIONS,
+                    hash: 'SHA-256'
+                },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['decrypt']
+            )
+            console.debug('[decrypt2FasEncrypted] key derived')
+
+            // AES-GCM 解密
+            // GCM 模式下，密文末尾 16 字节是 auth tag
+            if (actualCipher.length < 16) {
+                throw new migrationError('密文过短（无法包含 auth tag）', 'CIPHERTEXT_TOO_SHORT')
+            }
+            const authTag = actualCipher.slice(actualCipher.length - 16)
+            const encryptedData = actualCipher.slice(0, actualCipher.length - 16)
+
+            const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: actualIv },
+                key,
+                new Uint8Array([...encryptedData, ...authTag])
+            )
+
+            const plaintext = new TextDecoder().decode(decrypted)
+            const servicesJson = JSON.parse(plaintext)
+            // servicesJson 应该是数组格式的 2FAS services
+            if (!Array.isArray(servicesJson)) {
+                throw new migrationError('解密后的数据不是数组格式', 'INVALID_DECRYPTED_FORMAT')
+            }
+
+            return servicesJson
+        } catch (error) {
+            if (error instanceof migrationError) {
+                throw error
+            }
+            throw new migrationError(`2FAS 解密失败：${error.message || String(error)}`, 'TWOFAS_DECRYPTION_FAILED', error)
+        }
+    },
+
+    /**
      * 3.0 解析PhoneFactor SQLite数据库
      * @param {ArrayBuffer} dbBuffer - SQLite数据库二进制数据
      * @returns {Promise<Object[]>} 标准化的账户列表
@@ -580,11 +768,27 @@ export const dataMigrationService = {
             type = 'raw'
         }
 
-        if (type === 'proton') {
+        if (type === 'proton_encrypted') {
             rawVault = await protonStrategy.parse(content, password)
             type = 'raw'
             content = JSON.stringify(rawVault)
             password = undefined
+        }
+
+        // 处理 2FAS 加密备份
+        if (type === '2fas_encrypted') {
+            if (!password) throw new migrationError('导入 2FAS 加密备份需要密码', 'MISSING_PASSWORD')
+            try {
+                const encryptedJson = typeof content === 'string' ? JSON.parse(content) : content
+                const decryptedServices = await this.decrypt2FasEncrypted(password, encryptedJson)
+                // 转换为标准 2FAS 格式处理
+                content = JSON.stringify({ services: decryptedServices })
+                type = '2fas'
+                password = undefined
+            } catch (e) {
+                if (e instanceof migrationError) throw e
+                throw new migrationError(`2FAS 加密备份解密失败：${e.message || String(e)}`, 'TWOFAS_DECRYPTION_FAILED', e)
+            }
         }
 
         if (type === 'aegis_encrypted') {
@@ -599,7 +803,7 @@ export const dataMigrationService = {
         }
 
         if (type === 'encrypted') {
-            if (!password) throw new migrationError('导入加密文件需要密码', 'MISSING_PASSWORD')
+            if (!password) throw new migrationError('导入本系统加密文件需要密码', 'MISSING_PASSWORD')
             try {
                 let ciphertext = content
                 const json = typeof content === 'string' ? tryParseJSON(content) : content

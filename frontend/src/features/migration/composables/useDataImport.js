@@ -124,7 +124,7 @@ export function useDataImport(emitFn) {
                     }
                 }
 
-                if (detectedType === 'encrypted' || detectedType === 'aegis_encrypted' || detectedType === 'proton') {
+                if (detectedType === 'encrypted' || detectedType === 'aegis_encrypted' || detectedType === 'proton_encrypted' || detectedType === '2fas_encrypted') {
                     importPassword.value = ''
                     isDialogHandled.value = false
                     showDecryptDialog.value = true
@@ -184,7 +184,6 @@ export function useDataImport(emitFn) {
         } catch (error) {
             console.error(error)
             ElMessage.error(`解密失败：密码错误或不支持加密标准`)
-            // do not decrement job, user can try again
         } finally {
             isDecrypting.value = false
         }

@@ -98,7 +98,8 @@
     <!-- 加密文件密码输入弹窗 -->
     <el-dialog v-model="showDecryptDialog" title="🔓 解密备份文件" width="400px" @close="handleDecryptDialogClose" destroy-on-close>
       <el-alert v-if="currentImportType === 'aegis_encrypted'" title="检测到 Aegis 加密备份" type="warning" :closable="false" style="margin-bottom: 15px;" />
-      <el-alert v-else-if="currentImportType === 'proton'" title="检测到 Proton Pass 加密备份" type="warning" :closable="false" style="margin-bottom: 15px;" />
+      <el-alert v-else-if="currentImportType === 'proton_encrypted'" title="检测到 Proton Auth 加密备份" type="warning" :closable="false" style="margin-bottom: 15px;" />
+      <el-alert v-else-if="currentImportType === '2fas_encrypted'" title="检测到 2FAS Auth 加密备份" type="warning" :closable="false" style="margin-bottom: 15px;" />
       <el-alert v-else title="检测到本系统加密备份" type="success" :closable="false" style="margin-bottom: 15px;" />
       <el-form label-position="top" v-loading="isDecrypting" :element-loading-text="loadingText">
         <el-form-item label="请输入该备份的解密密码：">
