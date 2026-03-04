@@ -209,10 +209,11 @@ main {
 }
 
 .main-content {
-  padding: 30px 20px;
   width: 100%;
   background-color: var(--el-bg-color-page);
-  overflow-y: auto;
+  /* 原为 auto，修改为保留滚动空间防止因高度变化产生的抖动，或直接将滚动条悬浮覆盖 */
+  overflow-y: overlay;
+  scrollbar-gutter: stable;
 }
 
 .sidebar-footer {
@@ -428,12 +429,25 @@ main {
   letter-spacing: 2px;
   line-height: 1;
   font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.current-code[data-digits="8"] {
+  font-size: 20px;
+  letter-spacing: 0px;
 }
 
 .next-code {
   font-size: 16px;
   color: var(--el-text-color-secondary);
   font-family: monospace;
+}
+
+.next-code[data-digits="8"] {
+  font-size: 14px;
+  letter-spacing: 0px;
 }
 
 .timer-text {
@@ -672,16 +686,6 @@ main {
 .tool-card-content {
   display: flex;
   align-items: center;
-}
-
-.icon-wrapper {
-  width: 50px;
-  height: 50px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 15px;
 }
 
 .text-info {
@@ -1065,7 +1069,6 @@ main {
 }
 
 .icon-wrapper {
-  margin-bottom: 20px;
   background: var(--el-color-primary-light-9);
   width: 80px;
   height: 80px;
@@ -1073,7 +1076,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 20px;
+  margin-right: 15px;
 }
 
 .title {
@@ -1168,8 +1171,13 @@ main {
 }
 
 @media (max-width: 768px) {
+
   /* 修复 el-dialog 在移动端固定宽溢出 */
   .el-dialog {
     width: 90% !important;
+  }
+
+  .tab-card-wrapper {
+    padding: 20px;
   }
 }

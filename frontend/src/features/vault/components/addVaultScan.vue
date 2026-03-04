@@ -2,7 +2,7 @@
   <div class="add-vault-wrapper">
     <div class="tab-card-wrapper">
       <h2 style="text-align: center; margin-bottom: 20px;">📷 扫码添加</h2>
-      <div style="max-width: 600px; margin: 0 auto;">
+      <div style="max-width: 100%; margin: 0 auto;">
         <div style="text-align: center; margin-bottom: 20px; margin-top: 10px;">
           <p style="color: var(--el-text-color-secondary);">请允许浏览器使用摄像头，或直接上传微信/系统截图。</p>
         </div>

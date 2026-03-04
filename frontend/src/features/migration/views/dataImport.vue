@@ -6,7 +6,7 @@
         <p style="color: var(--el-text-color-secondary);">支持从各类 2FA 软件或本系统的备份文件中恢复数据。</p>
       </div>
 
-      <div style="max-width: 600px; margin: 0 auto;">
+      <div style="max-width: 100%; margin: 0 auto;">
         
         <!-- 统一的拖拽上传区域 -->
         <el-upload
@@ -51,7 +51,11 @@
                   </div>
                   <div class="ms-tip">
                     <span>Microsoft Authenticator <small>(仅支持 Android)</small></span>
-                    <p>Android 手机导出文件 <code>/data/data/com.azure.authenticator/databases/PhoneFactor</code> 后，直接上传</p>
+                    <p>Android 手机导出以下文件后,同时上传即可导入：
+                      <code>/data/data/com.azure.authenticator/databases/PhoneFactor</code><br />
+                      <code>/data/data/com.azure.authenticator/databases/PhoneFactor-wal</code><br />
+                      <code>/data/data/com.azure.authenticator/databases/PhoneFactor-shm</code>
+                    </p>
                   </div>
                 </div>
 

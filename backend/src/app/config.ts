@@ -20,6 +20,7 @@ export const CSP_POLICY = {
         "'self'",
         "'unsafe-inline'",
         "'unsafe-eval'",
+        "'wasm-unsafe-eval'",
         "https://static.cloudflareinsights.com",
     ],
     // 图片源: 允许本站、GitHub 头像、NodeLoc 头像

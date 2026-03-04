@@ -69,6 +69,22 @@ export function useVaultList(afterLoadRef = null) {
         const merged = flatVault.map(newAcc => {
             const existing = vault.value.find(a => a.id === newAcc.id)
             if (existing) {
+                // 检测关键参数变化：digits, secret, algorithm
+                const hasParameterChange = 
+                    existing.digits !== newAcc.digits ||
+                    existing.secret !== newAcc.secret ||
+                    existing.algorithm !== newAcc.algorithm
+                
+                // 若参数变化，强制清空验证码以触发重新计算
+                if (hasParameterChange) {
+                    return {
+                        ...existing,
+                        ...newAcc,
+                        currentCode: '------',  // 强制重新计算
+                        forceCompute: true      // 标记为需要优先计算
+                    }
+                }
+                
                 return { ...existing, ...newAcc }  // 保留 currentCode / remaining 等动态字段
             }
             return {
@@ -82,7 +98,7 @@ export function useVaultList(afterLoadRef = null) {
         })
 
         // 两级渲染策略，兼顾「无 ------ 闪烁」与「切换回来秒开」：
-        // 1. 找出真正的新增项（已有项 currentCode 有值，直接复用，无需重算）
+        // 1. 找出真正的新增项或参数变化项（已有项 currentCode 有值，直接复用，无需重算）
         const newItems = merged.filter(acc => !acc.currentCode || acc.currentCode === '------')
 
         if (newItems.length > 0) {

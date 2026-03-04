@@ -59,6 +59,38 @@ export function useDataImport(emitFn) {
         batchAccumulatedVault.value = []
         batchErrors.value = []
         batchCurrentTaskName.value = ''
+        phoneFactorGroup.value = { main: null, wal: null, shm: null }
+    }
+
+    // PhoneFactor specialized grouping
+    const phoneFactorGroup = ref({ main: null, wal: null, shm: null })
+    let phoneFactorTimer = null
+
+    const processPhoneFactorGroup = async () => {
+        const group = { ...phoneFactorGroup.value }
+        phoneFactorGroup.value = { main: null, wal: null, shm: null } // reset
+
+        let groupedCount = 0;
+        if (group.main) groupedCount++;
+        if (group.wal) groupedCount++;
+        if (group.shm) groupedCount++;
+
+        // We only proceed if we have at least *something*
+        if (groupedCount === 0) return
+
+        batchCurrentTaskName.value = '构建数据：PhoneFactor 数据集'
+        try {
+            // we pass the entire group object to the service
+            const vault = await dataMigrationService.parseImportData(group, 'phonefactor_group')
+            batchAccumulatedVault.value.push(...vault)
+        } catch (err) {
+            console.error('[PhoneFactor Group] parseImportData failed:', err)
+            const detail = err && err.message ? err.message : String(err)
+            batchErrors.value.push(`[PhoneFactor] 解析失败: ${detail}`)
+        } finally {
+            batchProcessedJobs.value += groupedCount
+            importingJobs.value -= groupedCount
+        }
     }
 
     const handleFileUpload = async (uploadFile) => {
@@ -96,6 +128,31 @@ export function useDataImport(emitFn) {
 
     const handleNonImageFile = (file) => {
         try {
+            // First pass check for PhoneFactor by filename, buffer them
+            const fname = file.name.toLowerCase()
+            if (fname === 'phonefactor' || fname === 'phonefactor-wal' || fname === 'phonefactor-shm') {
+                const reader = new FileReader()
+                reader.onload = (event) => {
+                    const buffer = event.target.result
+                    if (fname === 'phonefactor') phoneFactorGroup.value.main = { name: file.name, buffer }
+                    else if (fname === 'phonefactor-wal') phoneFactorGroup.value.wal = { name: file.name, buffer }
+                    else if (fname === 'phonefactor-shm') phoneFactorGroup.value.shm = { name: file.name, buffer }
+
+                    // Debounce group execution
+                    if (phoneFactorTimer) clearTimeout(phoneFactorTimer)
+                    phoneFactorTimer = setTimeout(() => {
+                        processPhoneFactorGroup()
+                    }, 500)
+                }
+                reader.onerror = () => {
+                    batchErrors.value.push(`[${file.name}] 读取失败`)
+                    batchProcessedJobs.value++
+                    importingJobs.value--
+                }
+                reader.readAsArrayBuffer(file)
+                return
+            }
+
             currentFile.value = file
             const reader = new FileReader()
 
@@ -114,7 +171,6 @@ export function useDataImport(emitFn) {
                     return
                 }
 
-                // 如果不是 phonefactor，后续解析需要字符串内容
                 let contentForParse = buffer
                 if (detectedType !== 'phonefactor') {
                     try {

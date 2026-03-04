@@ -52,7 +52,7 @@
       >
         <el-row :gutter="20" v-if="vault.length > 0">
           <el-col :xs="24" :sm="12" :md="8" :lg="6" v-for="vaultItem in vault" :key="vaultItem.id" style="margin-bottom: 20px;">
-          <el-card class="vault-card" :class="{ 'is-selected': selectedIds.includes(vaultItem.id) }" shadow="hover" @click="copyCode(vaultItem)">
+          <el-card class="vault-card" :class="{ 'is-selected': selectedIds.includes(vaultItem.id) }" shadow="hover">
             <div class="card-header">
               <div class="service-info">
                 <el-checkbox :model-value="selectedIds.includes(vaultItem.id)" @change="toggleSelection(vaultItem.id)" @click.stop />
@@ -80,10 +80,10 @@
             
             <p class="vault-name">{{ vaultItem.account?.includes(':') ? vaultItem.account.split(':').pop() : vaultItem.account }}</p>
             
-            <div class="code-display-area">
+            <div class="code-display-area" @click="copyCode(vaultItem)">
               <div class="code-left">
-                <div class="current-code">{{ vaultItem.currentCode || '------' }}</div>
-                <div class="next-code" v-if="vaultItem.nextCode">
+                <div class="current-code" :data-digits="vaultItem.digits">{{ vaultItem.currentCode || '------' }}</div>
+                <div class="next-code" :data-digits="vaultItem.digits" v-if="vaultItem.nextCode">
                   {{ vaultItem.nextCode }}
                 </div>
               </div>

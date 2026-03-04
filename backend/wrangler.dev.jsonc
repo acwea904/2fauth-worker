@@ -3,6 +3,9 @@
   "name": "2fauth-worker-dev",
   "main": "src/app/index.ts",
   "compatibility_date": "2024-04-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   // ====== 静态资源托管 ======
   "assets": {
     "binding": "ASSETS",

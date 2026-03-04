@@ -57,6 +57,7 @@
     direction="ltr"
     size="240px"
     :with-header="false"
+    :lock-scroll="false"
   >
     <div class="drawer-content">
       <el-menu

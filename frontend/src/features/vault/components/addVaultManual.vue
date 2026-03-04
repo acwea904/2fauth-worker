@@ -2,7 +2,7 @@
   <div class="add-vault-wrapper">
     <div class="tab-card-wrapper">
       <h2 style="text-align: center; margin-bottom: 20px;">⌨️ 手动输入</h2>
-      <div style="max-width: 600px; margin: 0 auto;">
+      <div style="max-width: 100%; margin: 0 auto;">
         <el-form :model="newVault" label-position="top" :rules="rules" ref="addFormRef" style="padding: 10px 0;">
           <el-form-item label="服务名称 (如 Google, GitHub)" prop="service">
             <el-input v-model="newVault.service" placeholder="请输入服务名称" />

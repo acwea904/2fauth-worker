@@ -8,7 +8,11 @@ import { aegisStrategy } from '@/shared/utils/serializers/aegisStrategy'
 import protonStrategy from '@/shared/utils/serializers/protonStrategy'
 import { migrationError } from '@/shared/utils/errors/migrationError'
 import jsQR from 'jsqr'
-import initSqlJs from 'sql.js'
+
+
+import SQLiteESMFactory from 'wa-sqlite/dist/wa-sqlite-async.mjs'
+import * as SQLite from 'wa-sqlite'
+import { MemoryAsyncVFS } from '@/shared/utils/sqlite/MemoryAsyncVFS'
 
 // 2FAS 加密备份的固定参数（官方格式标准）
 const _2FAS_CRYPTO_CONFIG = {
@@ -503,12 +507,16 @@ export const dataMigrationService = {
                 const allBufs = bufs.slice()
                 const permutations = [
                     { salt: bufs[1], iv: bufs[2], cipher: bufs[0], name: 'bufs[1]=salt, bufs[2]=iv, bufs[0]=cipher' },
-                    { salt: bufs.length > 1 && bufs[1].length >= 44 ? bufs[1].slice(0, 32) : null,
-                      iv: bufs.length > 1 && bufs[1].length >= 44 ? bufs[1].slice(32, 44) : null,
-                      cipher: bufs[0],
-                      name: 'salt/iv extracted from bufs[1]' },
-                    { salt: bufs[0].slice(0, 32), iv: bufs[0].slice(32, 44), cipher: bufs[0].slice(44),
-                      name: 'salt/iv extracted from bufs[0]' }
+                    {
+                        salt: bufs.length > 1 && bufs[1].length >= 44 ? bufs[1].slice(0, 32) : null,
+                        iv: bufs.length > 1 && bufs[1].length >= 44 ? bufs[1].slice(32, 44) : null,
+                        cipher: bufs[0],
+                        name: 'salt/iv extracted from bufs[1]'
+                    },
+                    {
+                        salt: bufs[0].slice(0, 32), iv: bufs[0].slice(32, 44), cipher: bufs[0].slice(44),
+                        name: 'salt/iv extracted from bufs[0]'
+                    }
                 ]
 
                 for (const perm of permutations) {
@@ -621,95 +629,284 @@ export const dataMigrationService = {
     },
 
     /**
-     * 3.0 解析PhoneFactor SQLite数据库
-     * @param {ArrayBuffer} dbBuffer - SQLite数据库二进制数据
+     * 辅助函数：将字节数组编码为 Base32 字符串
+     * @param {Uint8Array} bytes
+     * @returns {string}
+     */
+    bytesToBase32(bytes) {
+        const base32Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+        let bits = 0
+        let value = 0
+        let output = ''
+
+        for (let i = 0; i < bytes.length; i++) {
+            value = (value << 8) | bytes[i]
+            bits += 8
+
+            while (bits >= 5) {
+                bits -= 5
+                output += base32Chars[(value >>> bits) & 31]
+            }
+        }
+
+        if (bits > 0) {
+            output += base32Chars[(value << (5 - bits)) & 31]
+        }
+
+        // 添加 padding
+        while (output.length % 8) {
+            output += '='
+        }
+
+        return output
+    },
+
+    /**
+     * 辅助函数：将 Base64 字符串转换为 Base32
+     * @param {string} base64Str
+     * @returns {string}
+     */
+    base64ToBase32(base64Str) {
+        try {
+            // 解码 Base64 为字节数组
+            const binaryString = atob(base64Str.trim())
+            const bytes = new Uint8Array(binaryString.length)
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i)
+            }
+            // 转换为 Base32
+            return this.bytesToBase32(bytes)
+        } catch (e) {
+            throw new Error(`Base64 转 Base32 失败: ${e.message}`)
+        }
+    },
+
+    /**
+     * 3.0 解析PhoneFactor SQLite数据库 (通过 wa-sqlite 支持 WAL 和多文件)
+     * @param {ArrayBuffer|Object} inputData - SQLite数据库二进制数据(为旧版兼容) 或者 包含 main/wal/shm 的 group 对象
      * @returns {Promise<Object[]>} 标准化的账户列表
      * @throws {migrationError}
      */
-    async parsePhoneFactor(dbBuffer) {
+    async parsePhoneFactor(inputData) {
+        console.log('[PhoneFactor] parsePhoneFactor 开始')
+        let mainBuf = null
+        let walBuf = null
+        let shmBuf = null
+        let vfs = null
+
         try {
-            // 初始化 sql.js：浏览器端优先从 /sql-wasm.wasm 或 CDN 加载 wasm，Node 环境从 node_modules 加载
-            let SQL
-            try {
-                if (typeof window !== 'undefined') {
-                    try {
-                        SQL = await initSqlJs({ locateFile: file => `/sql-wasm.wasm` })
-                    } catch (e) {
-                        // 如果本地 public 中不存在 wasm，回退到 CDN
-                        SQL = await initSqlJs({ locateFile: file => `https://unpkg.com/sql.js@1.10.3/dist/${file}` })
-                    }
-                } else {
-                    SQL = await initSqlJs({ locateFile: file => require('path').resolve('node_modules/sql.js/dist/', file) })
-                }
-            } catch (e) {
-                // 最后兜底，直接初始化（可能仍然抛错）
-                SQL = await initSqlJs()
+            // Group 提取
+
+            if (inputData && inputData.main && inputData.main.buffer) {
+                mainBuf = new Uint8Array(inputData.main.buffer)
+                if (inputData.wal && inputData.wal.buffer) walBuf = new Uint8Array(inputData.wal.buffer)
+                if (inputData.shm && inputData.shm.buffer) shmBuf = new Uint8Array(inputData.shm.buffer)
+            } else if (inputData instanceof ArrayBuffer || inputData instanceof Uint8Array) {
+                // 回退：单文件模式
+                mainBuf = new Uint8Array(inputData)
+            } else {
+                throw new migrationError('无法识别传入的 PhoneFactor 数据格式', 'INVALID_PHONEFACTOR_INPUT')
             }
-            const db = new SQL.Database(new Uint8Array(dbBuffer))
+
+            console.log('[PhoneFactor] 文件提取完成', {
+                mainBufLen: mainBuf?.byteLength,
+                walBufLen: walBuf?.byteLength ?? 0,
+                shmBufLen: shmBuf?.byteLength ?? 0
+            })
+
+            // 初始化 wa-sqlite
+            console.log('[PhoneFactor] 调用 SQLiteESMFactory...')
+            const module = await SQLiteESMFactory()
+            console.log('[PhoneFactor] SQLiteESMFactory 完成，创建 sqlite3...')
+            const sqlite3 = SQLite.Factory(module)
+            console.log('[PhoneFactor] sqlite3 Factory 完成')
+
+            // 注册内存虚拟文件系统 (MemoryAsyncVFS)
+            // wa-sqlite-async build 必须配合 Async VFS 才能正确处理 Asyncify 异步调用
+            vfs = new MemoryAsyncVFS()
+            const vfsName = `vfs-${Date.now()}`
+            vfs.name = vfsName
+            sqlite3.vfs_register(vfs)
+            console.log('[PhoneFactor] VFS 注册完成:', vfsName)
+
+            // 将文件加载入内存文件系统
+            const mainPath = 'PhoneFactor'
+
+            // Helper to write file to MemoryVFS
+            const writeFileToVFS = (path, uint8Array) => {
+                // 使用 slice 确保我们获取的是一个干净的 ArrayBuffer，
+                // 解决可能存在的 TypedArray view 偏移量问题导致 SQLite 无法识别文件头。
+                const ab = uint8Array.buffer.slice(uint8Array.byteOffset, uint8Array.byteOffset + uint8Array.byteLength)
+                vfs.mapNameToFile.set(path, {
+                    name: path,
+                    flags: SQLite.SQLITE_OPEN_CREATE | SQLite.SQLITE_OPEN_READWRITE | SQLite.SQLITE_OPEN_MAIN_DB,
+                    size: uint8Array.byteLength,
+                    data: ab
+                })
+            }
+
+            writeFileToVFS(mainPath, mainBuf)
+            // 注入 WAL（如果有真实内容）
+            const hasRealWal = walBuf && walBuf.byteLength > 0
+            if (hasRealWal) writeFileToVFS(`${mainPath}-wal`, walBuf)
+            // ⚠️ 关键：始终注入 SHM（如果存在），不管 WAL 是否为空。
+            // PhoneFactor 主文件本身可能已处于 WAL 模式（header byte 18 = 2），
+            // SQLite 初始化时必须能找到 SHM 文件，否则报 SQLITE_CANTOPEN (14)。
+            if (shmBuf && shmBuf.byteLength > 0) writeFileToVFS(`${mainPath}-shm`, shmBuf)
+
+            console.log('[PhoneFactor] 注入文件到 VFS 完成', {
+                main: mainPath,
+                hasWal: hasRealWal,
+                hasShm: !!(shmBuf && shmBuf.byteLength > 0)
+            })
+
+            console.log('[PhoneFactor] 调用 open_v2...')
+            const db = await sqlite3.open_v2(
+                mainPath,
+                SQLite.SQLITE_OPEN_READWRITE | SQLite.SQLITE_OPEN_CREATE,
+                vfsName
+            )
+            console.log('[PhoneFactor] open_v2 成功')
+
+            // ⚠️ 关键步骤：处理 WAL 模式（无论 WAL 文件是否为空）
+            // PhoneFactor 数据库可能已处于 WAL 模式（header byte 18 = 2）。
+            // 即使 WAL 文件为空（无未提交变更），也必须执行以下两条 PRAGMA 来：
+            // 1. 获取 EXCLUSIVE 锁，使 SQLite 能在只有 SHM 的情况下正确初始化
+            // 2. 将 journal 模式切换回 DELETE，触发 checkpoint 并确保数据可读
+            // 注：对于非 WAL 模式数据库，这两条 PRAGMA 是无害的空操作
+            console.log('[PhoneFactor] 执行 PRAGMA locking_mode...')
+            await sqlite3.exec(db, 'PRAGMA locking_mode = EXCLUSIVE;')
+            console.log('[PhoneFactor] 执行 PRAGMA journal_mode...')
+            await sqlite3.exec(db, 'PRAGMA journal_mode = DELETE;')
+            console.log('[PhoneFactor] PRAGMA 完成')
 
             // 检查accounts表是否存在
-            const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'")
-            if (tables.length === 0) {
+            let hasAccountsTable = false
+            await sqlite3.exec(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'", (row) => {
+                hasAccountsTable = true
+            })
+            console.log('[PhoneFactor] accounts 表存在:', hasAccountsTable)
+
+            if (!hasAccountsTable) {
+                await sqlite3.close(db)
                 throw new migrationError('不是有效的Microsoft Authenticator数据文件', 'INVALID_PHONEFACTOR_FILE')
             }
 
-            // 使用 prepared statement 逐行读取，避免依赖 exec 返回的 columns/values 结构不一致
             const vault = []
             let skippedEncrypted = 0
             let skippedEmpty = 0
+            let skippedInvalidSecret = 0
             const base32Re = /^[A-Z2-7]+=*$/i
 
             try {
-                const stmt = db.prepare("SELECT name, username, oath_secret_key, encrypted_oath_secret_key FROM accounts WHERE account_type=0")
-                while (stmt.step()) {
-                    const record = stmt.getAsObject()
-                    const name = record.name
-                    const username = record.username
-                    const oath_secret_key = record.oath_secret_key
-                    const encrypted_oath_secret_key = record.encrypted_oath_secret_key
+                console.log('[PhoneFactor] 开始提取基础数据...')
 
-                    // 跳过条件：name 和 username 同时为空
-                    if ((!name || String(name).trim() === '') && (!username || String(username).trim() === '')) {
-                        skippedEmpty++
-                        continue
-                    }
+                // 不使用 for await (const stmt of ...)，规避 Asyncify Generator 的协程挂起 bug
+                const str = sqlite3.str_new(db, "SELECT name, username, oath_secret_key, encrypted_oath_secret_key, account_type FROM accounts")
+                let prepared = await sqlite3.prepare_v2(db, sqlite3.str_value(str))
 
-                    const secret = (oath_secret_key || '').toString().trim()
-                    if (!secret) {
-                        if (encrypted_oath_secret_key && String(encrypted_oath_secret_key).trim() !== '') {
-                            skippedEncrypted++
-                            continue
+                if (prepared && prepared.stmt) {
+                    const stmt = prepared.stmt
+                    console.log('[PhoneFactor] SQL 预编译成功，开始读取行...')
+
+                    try {
+                        let rowsRead = 0;
+                        while (await sqlite3.step(stmt) === SQLite.SQLITE_ROW) {
+                            rowsRead++;
+                            if (rowsRead % 5 === 0) console.log(`[PhoneFactor] 已读取 ${rowsRead} 行...`);
+
+                            const row = sqlite3.row(stmt)
+                            const name = row[0]
+                            const username = row[1]
+                            let oath_secret_key = row[2]
+                            const encrypted_oath_secret_key = row[3]
+                            const account_type = row[4]
+
+                            // 跳过条件：name 和 username 同时为空
+                            if ((!name || String(name).trim() === '') && (!username || String(username).trim() === '')) {
+                                skippedEmpty++
+                                continue
+                            }
+
+                            let secret = (oath_secret_key || '').toString().trim()
+                            if (!secret) {
+                                if (encrypted_oath_secret_key && String(encrypted_oath_secret_key).trim() !== '') {
+                                    skippedEncrypted++
+                                    continue
+                                }
+                                skippedEmpty++
+                                continue
+                            }
+
+                            let algorithm = 'SHA1'
+                            let digits = 6
+
+                            // 根据 account_type 处理密钥
+                            try {
+                                if (account_type === 0) {
+                                    // account_type=0: Base32 编码
+                                } else if (account_type === 1) {
+                                    // account_type=1: Base64 编码，转换为 Base32
+                                    secret = this.base64ToBase32(secret)
+                                    algorithm = 'SHA1'
+                                    digits = 8
+                                } else if (account_type === 2) {
+                                    // account_type=2: Base32 编码（小写），转大写
+                                    secret = secret.toUpperCase()
+                                    algorithm = 'SHA256'
+                                    digits = 6
+                                } else {
+                                    skippedInvalidSecret++
+                                    continue
+                                }
+                            } catch (e) {
+                                console.warn(`Failed to convert secret for account_type=${account_type}:`, e.message)
+                                skippedInvalidSecret++
+                                continue
+                            }
+
+                            // 验证转换后的密钥是否为有效的 Base32 格式
+                            const normalized = secret.replace(/\s+/g, '').replace(/=+$/, '')
+                            if (!base32Re.test(normalized)) {
+                                if (encrypted_oath_secret_key && String(encrypted_oath_secret_key).trim() !== '') {
+                                    skippedEncrypted++
+                                    continue
+                                }
+                                skippedInvalidSecret++
+                                continue
+                            }
+
+                            vault.push({
+                                service: name || 'Unknown Service',
+                                account: username || 'Unknown Account',
+                                secret: secret,
+                                algorithm: algorithm,
+                                digits: digits,
+                                period: 30
+                            })
                         }
-                        skippedEmpty++
-                        continue
+                        console.log(`[PhoneFactor] 行读取循环结束，总共提取 ${rowsRead} 行`);
+                    } finally {
+                        await sqlite3.finalize(stmt)
                     }
-
-                    const normalized = secret.replace(/\s+/g, '').replace(/=+$/, '')
-                    if (!base32Re.test(normalized)) {
-                        if (encrypted_oath_secret_key && String(encrypted_oath_secret_key).trim() !== '') {
-                            skippedEncrypted++
-                            continue
-                        }
-                        skippedEmpty++
-                        continue
-                    }
-
-                    vault.push({
-                        service: name || 'Unknown Service',
-                        account: username || 'Unknown Account',
-                        secret: secret,
-                        algorithm: 'SHA1',
-                        digits: 6,
-                        period: 30
-                    })
                 }
-                stmt.free()
+                sqlite3.str_finish(str)
+                console.log('[PhoneFactor] 数据提取完成，关闭 DB...')
             } catch (e) {
-                db.close()
+                await sqlite3.close(db)
                 throw new migrationError('解析 PhoneFactor 数据库失败', 'INVALID_PHONEFACTOR_FILE', e)
             }
 
-            db.close()
+            await sqlite3.close(db)
+
+            // Clean up memory VFS (by clearing the maps, safer than calling xDelete from JS)
+            try {
+                if (vfs) {
+                    vfs.mapNameToFile.clear()
+                    vfs.mapIdToFile.clear()
+                }
+            } catch (ignore) { }
+
             if (vault.length === 0) {
                 if (skippedEncrypted > 0) throw new migrationError('PhoneFactor 文件仅包含加密的密钥，无法在前端导入', 'PHONEFACTOR_ONLY_ENCRYPTED')
                 throw new migrationError('未能从 PhoneFactor 文件中提取到可导入的 TOTP 记录', 'PHONEFACTOR_NO_IMPORTABLE_ROWS')
@@ -721,10 +918,15 @@ export const dataMigrationService = {
                 console.error('parsePhoneFactor migrationError:', error)
                 throw error
             }
-            // 打印详细调试信息到控制台，包含底层错误与缓冲长度
+            // 打印详细调试信息到控制台
             try {
-                const bufLen = (dbBuffer && (dbBuffer.byteLength || dbBuffer.length)) || 0
-                console.error('parsePhoneFactor failed:', { message: error && error.message, stack: error && error.stack, bufferLength: bufLen, error })
+                const bufLen = (mainBuf && (mainBuf.byteLength || mainBuf.length)) || 0
+                console.error('parsePhoneFactor failed:', {
+                    message: error && error.message,
+                    stack: error && error.stack,
+                    bufferLength: bufLen,
+                    error
+                })
             } catch (logErr) {
                 console.error('parsePhoneFactor failed (logging error):', logErr)
             }
@@ -744,8 +946,8 @@ export const dataMigrationService = {
     async parseImportData(content, type, password) {
         let rawVault = []
 
-        // 处理PhoneFactor SQLite数据库
-        if (type === 'phonefactor') {
+        // 处理PhoneFactor SQLite数据库 (包括新版的 phonefactor_group)
+        if (type === 'phonefactor' || type === 'phonefactor_group') {
             return await this.parsePhoneFactor(content)
         }
 
