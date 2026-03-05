@@ -1,6 +1,7 @@
 import { ElMessage } from 'element-plus'
 import router from '@/app/router'
 import { useAuthUserStore } from '@/features/auth/store/authUserStore'
+import { i18n } from '@/locales'
 
 // 辅助函数：从 document.cookie 中安全地读取指定的 cookie 值
 export function getCookie(name) {
@@ -27,7 +28,7 @@ export async function request(url, options = {}) {
     const method = (options.method || 'GET').toUpperCase();
     if (!navigator.onLine && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
         if (!options.silent) {
-            ElMessage.warning('当前处于离线模式，无法进行此操作');
+            ElMessage.warning(i18n.global.t('api_errors.offline'));
         }
         throw new Error('Offline: Cannot perform mutative action');
     }
@@ -50,7 +51,26 @@ export async function request(url, options = {}) {
 
             if (!isNavigatingToLogin) {
                 isNavigatingToLogin = true;
-                ElMessage.error(data.message || data.error || '会话已过期，请重新登录')
+
+                // 这里我们暂且尝试直接翻译：假设后端抛出的 data.message 已经是 ERROR_CODE
+                // 或者我们可以尝试：如果字典里包含这个 message 的 key 就翻译，否则原样输出
+                let fallbackMessage = data.message || data.error || 'session_expired'
+                let errorDetails = ''
+                if (typeof fallbackMessage === 'string' && fallbackMessage.includes(':')) {
+                    const parts = fallbackMessage.split(':')
+                    fallbackMessage = parts[0].trim()
+                    errorDetails = parts.slice(1).join(':').trim()
+                }
+
+                let translatedMessage = i18n.global.te(`api_errors.${fallbackMessage}`)
+                    ? i18n.global.t(`api_errors.${fallbackMessage}`)
+                    : fallbackMessage
+
+                if (errorDetails) {
+                    translatedMessage = `${translatedMessage}: ${errorDetails}`
+                }
+
+                ElMessage.error(translatedMessage)
 
                 // 调用 Pinia Action 清空用户信息、缓存、以及重置内存状态，防止路由守卫死循环打回
                 try {
@@ -82,7 +102,23 @@ export async function request(url, options = {}) {
         // 注意：兼容旧的 data.error 和新的 data.message
         if (!response.ok || data.success === false) {
             if (!options.silent) {
-                ElMessage.error(data.message || data.error || '请求失败')
+                let fallbackError = data.message || data.error || 'request_failed'
+                let errorDetails = ''
+
+                if (typeof fallbackError === 'string' && fallbackError.includes(':')) {
+                    const parts = fallbackError.split(':')
+                    fallbackError = parts[0].trim()
+                    errorDetails = parts.slice(1).join(':').trim()
+                }
+
+                let translatedError = i18n.global.te(`api_errors.${fallbackError}`)
+                    ? i18n.global.t(`api_errors.${fallbackError}`)
+                    : fallbackError
+
+                if (errorDetails) {
+                    translatedError = `${translatedError}: ${errorDetails}`
+                }
+                ElMessage.error(translatedError)
             }
             throw new Error(data.message || data.error || '请求失败')
         }

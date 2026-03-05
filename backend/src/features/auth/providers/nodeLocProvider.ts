@@ -17,7 +17,7 @@ export class NodeLocProvider extends BaseOAuthProvider {
         const redirectUri = this.env.OAUTH_NODELOC_REDIRECT_URI;
 
         if (!clientId || !redirectUri) {
-            throw new AppError('NodeLoc OAuth configuration incomplete', 500);
+            throw new AppError('oauth_config_incomplete', 500);
         }
 
         const params = new URLSearchParams({
@@ -36,7 +36,7 @@ export class NodeLocProvider extends BaseOAuthProvider {
         const code = typeof params === 'string' ? params : params.get('code');
 
         if (!code) {
-            throw new AppError('NodeLoc OAuth callback missing code', 400);
+            throw new AppError('oauth_code_missing', 400);
         }
 
         const clientId = this.env.OAUTH_NODELOC_CLIENT_ID;
@@ -44,7 +44,7 @@ export class NodeLocProvider extends BaseOAuthProvider {
         const redirectUri = this.env.OAUTH_NODELOC_REDIRECT_URI;
 
         if (!clientId || !clientSecret || !redirectUri) {
-            throw new AppError('NodeLoc OAuth configuration incomplete', 500);
+            throw new AppError('oauth_config_incomplete', 500);
         }
 
         // 1. Exchange Code for Token
@@ -64,7 +64,7 @@ export class NodeLocProvider extends BaseOAuthProvider {
         });
 
         if (!tokenResponse.ok) {
-            throw new AppError(`NodeLoc Token Exchange failed: ${tokenResponse.status}`, 502);
+            throw new AppError(`oauth_token_exchange_failed: NodeLoc  | ${tokenResponse.status}`, 502);
         }
 
         const tokenData: any = await tokenResponse.json();
@@ -78,7 +78,7 @@ export class NodeLocProvider extends BaseOAuthProvider {
             }
         });
 
-        if (!userResponse.ok) throw new AppError(`NodeLoc API error: ${userResponse.status}`, 502);
+        if (!userResponse.ok) throw new AppError(`oauth_api_error: NodeLoc  | ${userResponse.status}`, 502);
         const userData: any = await userResponse.json();
 
         return {

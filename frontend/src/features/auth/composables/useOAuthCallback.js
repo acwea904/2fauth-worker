@@ -1,4 +1,4 @@
-import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthUserStore } from '@/features/auth/store/authUserStore'
 import { setIdbItem } from '@/shared/utils/idb'
@@ -10,8 +10,9 @@ import { authService } from '@/features/auth/service/authService'
 export function useOAuthCallback() {
     const route = useRoute()
     const router = useRouter()
+    const { t } = useI18n()
     const errorMsg = ref('')
-    const providerName = ref('身份提供商')
+    const providerName = ref(t('auth.default_provider'))
 
     onMounted(async () => {
         const code = route.query.code
@@ -43,7 +44,7 @@ export function useOAuthCallback() {
         }
 
         if (error) {
-            errorMsg.value = route.query.error_description || `您拒绝了 ${providerName.value} 的授权请求`
+            errorMsg.value = route.query.error_description || t('auth.oauth_declined', { provider: providerName.value })
             return
         }
 
@@ -52,21 +53,21 @@ export function useOAuthCallback() {
 
         if (providerId === 'telegram') {
             if (!hash) {
-                errorMsg.value = 'Telegram 登录缺少签名参数'
+                errorMsg.value = t('auth.telegram_missing_hash')
                 return
             }
             const savedState = localStorage.getItem('oauth_state')
             payload = { ...route.query, state: savedState }
         } else {
             if (!code || !state) {
-                errorMsg.value = 'URL 缺少必要的授权凭证参数'
+                errorMsg.value = t('auth.missing_auth_params')
                 return
             }
 
             // 防御 CSRF：必须检查 State 匹不匹配
             const savedState = localStorage.getItem('oauth_state')
             if (!savedState || savedState !== state) {
-                errorMsg.value = '安全警告：State 校验失败，请求可能被篡改'
+                errorMsg.value = t('auth.state_mismatch')
                 return
             }
 
@@ -103,12 +104,12 @@ export function useOAuthCallback() {
                 await authUserStore.fetchUserInfo()
                 router.push('/')
             } else {
-                errorMsg.value = data.error || '登录验证被后端拒绝'
+                errorMsg.value = data.error || t('auth.login_rejected')
             }
         } catch (err) {
             console.error('OAuth Callback Error:', err)
             // Error Managed by request interceptor and authError mapping
-            errorMsg.value = err.message || '网络请求异常，请稍后再试'
+            errorMsg.value = err.message || t('auth.network_abnormal')
         }
     })
 

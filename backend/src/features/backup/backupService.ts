@@ -24,7 +24,7 @@ export class BackupService {
             case 's3':
                 return new S3Provider(config);
             default:
-                throw new AppError(`Unknown provider type: ${type}`, 400);
+                throw new AppError('provider_not_found', 400);
         }
     }
 
@@ -77,17 +77,17 @@ export class BackupService {
 
     async addProvider(data: any): Promise<number> {
         const { type, name, config, autoBackup, autoBackupPassword, autoBackupRetain } = data;
-        if (!type || !name || !config) throw new AppError('Missing required fields', 400);
+        if (!type || !name || !config) throw new AppError('missing_fields', 400);
 
         const key = this.env.ENCRYPTION_KEY || this.env.JWT_SECRET;
         const encryptedConfig = await this.processConfigForStorage(type, config, key);
 
         let encryptedAutoBackupPwd = null;
         if (autoBackup && autoBackupPassword) {
-            if (autoBackupPassword.length < 12) throw new AppError('Auto-backup password must be at least 12 characters', 400);
+            if (autoBackupPassword.length < 12) throw new AppError('backup_password_length', 400);
             encryptedAutoBackupPwd = JSON.stringify(await encryptData(autoBackupPassword, key));
         } else if (autoBackup) {
-            throw new AppError('Auto-backup password is required (min 12 chars)', 400);
+            throw new AppError('backup_password_required', 400);
         }
 
         const res = await this.db.insert(backupProviders).values({
@@ -126,10 +126,10 @@ export class BackupService {
 
         let finalAutoPwd = current?.autoBackupPassword;
         if (autoBackupPassword) {
-            if (autoBackupPassword.length < 12) throw new AppError('Auto-backup password must be at least 12 characters', 400);
+            if (autoBackupPassword.length < 12) throw new AppError('backup_password_length', 400);
             finalAutoPwd = JSON.stringify(await encryptData(autoBackupPassword, key));
         } else if (autoBackup && !finalAutoPwd) {
-            throw new AppError('Auto-backup password is required (min 12 chars)', 400);
+            throw new AppError('backup_password_required', 400);
         }
 
         await this.db.update(backupProviders).set({
@@ -167,7 +167,7 @@ export class BackupService {
             const provider = await this.getProvider(type, config);
             await provider.testConnection();
         } catch (e: any) {
-            throw new AppError(`Connection failed: ${e.message}`, 400);
+            throw new AppError(`connection_failed: ${e.message}`, 400);
         }
     }
 
@@ -186,13 +186,13 @@ export class BackupService {
 
             if (password === '') {
                 if (!providerRow || !providerRow.autoBackupPassword) {
-                    throw new AppError('Manual backup with auto-password requires auto-backup to be configured with a password.', 400);
+                    throw new AppError('manual_backup_password_needed', 400);
                 }
                 backupPassword = await decryptData(JSON.parse(providerRow.autoBackupPassword), key);
             }
 
             if (!backupPassword || backupPassword.length < 12) {
-                throw new AppError('Backup password must be at least 12 characters.', 400);
+                throw new AppError('backup_password_length', 400);
             }
 
             const vaultResults = await this.db.select().from(vaultTable).all();
@@ -223,11 +223,11 @@ export class BackupService {
             finalFilename = `2fa-backup-manual-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
             finalContent = fileContent;
         } else {
-            throw new AppError('Request must include {filename, content} or {password}', 400);
+            throw new AppError('missing_fields', 400);
         }
 
         const providerRow = await this.db.select().from(backupProviders).where(eq(backupProviders.id, id)).get();
-        if (!providerRow) throw new AppError('Provider not found', 404);
+        if (!providerRow) throw new AppError('provider_not_found', 404);
 
         const configObj = await this.processConfigForUsage(providerRow.type, providerRow.config, key);
         const provider = await this.getProvider(providerRow.type, configObj);
@@ -240,13 +240,13 @@ export class BackupService {
             }).where(eq(backupProviders.id, id)).run();
         } catch (e: any) {
             await this.db.update(backupProviders).set({ lastBackupStatus: 'failed' }).where(eq(backupProviders.id, id)).run();
-            throw new AppError(`Backup failed: ${e.message}`, 500);
+            throw new AppError(`backup_failed: ${e.message}`, 500);
         }
     }
 
     async getFiles(id: number) {
         const providerRow = await this.db.select().from(backupProviders).where(eq(backupProviders.id, id)).get();
-        if (!providerRow) throw new AppError('Provider not found', 404);
+        if (!providerRow) throw new AppError('provider_not_found', 404);
 
         const key = this.env.ENCRYPTION_KEY || this.env.JWT_SECRET;
         const config = await this.processConfigForUsage(providerRow.type, providerRow.config, key);
@@ -256,10 +256,10 @@ export class BackupService {
     }
 
     async downloadFile(id: number, filename: string) {
-        if (!filename) throw new AppError('Filename is required', 400);
+        if (!filename) throw new AppError('filename_required', 400);
 
         const providerRow = await this.db.select().from(backupProviders).where(eq(backupProviders.id, id)).get();
-        if (!providerRow) throw new AppError('Provider not found', 404);
+        if (!providerRow) throw new AppError('provider_not_found', 404);
 
         const key = this.env.ENCRYPTION_KEY || this.env.JWT_SECRET;
         const config = await this.processConfigForUsage(providerRow.type, providerRow.config, key);
@@ -268,7 +268,7 @@ export class BackupService {
         try {
             return await provider.downloadBackup(filename);
         } catch (e: any) {
-            throw new AppError(`Download failed: ${e.message}`, 500);
+            throw new AppError(`download_failed: ${e.message}`, 500);
         }
     }
 

@@ -1,10 +1,10 @@
 <template>
   <div class="migration-container">
     <el-tabs v-model="activeTab" class="migration-tabs">
-      <el-tab-pane label="数据导出" name="export">
+      <el-tab-pane :label="$t('migration.export')" name="export">
         <DataExport />
       </el-tab-pane>
-      <el-tab-pane label="数据导入" name="import">
+      <el-tab-pane :label="$t('migration.import')" name="import">
         <DataImport @success="$emit('success')" />
       </el-tab-pane>
     </el-tabs>

@@ -15,23 +15,23 @@
       <!-- 时钟仪表盘 -->
       <div class="clocks-wrapper">
         <div class="clock-card local">
-          <div class="clock-label">📱 本地设备时间</div>
+          <div class="clock-label">📱 {{ $t('tools.local_time') }}</div>
           <div class="clock-time">{{ formatTime(localTime) }}</div>
         </div>
         <div class="clock-card server">
-          <div class="clock-label">☁️ 服务器时间 (估算)</div>
+          <div class="clock-label">☁️ {{ $t('tools.server_time') }}</div>
           <div class="clock-time">{{ formatTime(serverTime) }}</div>
         </div>
       </div>
 
       <!-- 详细数据 -->
       <div class="sync-details">
-        <p>时间偏差: <strong>{{ offset !== null ? `${offset > 0 ? '+' : ''}${offset} ms` : '--' }}</strong></p>
-        <p>网络延迟: <span>{{ rtt !== null ? `${rtt} ms` : '--' }}</span></p>
+        <p>{{ $t('tools.time_offset') }}: <strong>{{ offset !== null ? `${offset > 0 ? '+' : ''}${offset} ms` : '--' }}</strong></p>
+        <p>{{ $t('tools.network_latency') }}: <span>{{ rtt !== null ? `${rtt} ms` : '--' }}</span></p>
       </div>
 
       <el-button type="primary" size="large" :loading="isSyncing" @click="syncTime" style="width: 100%; margin-top: 20px;">
-        <el-icon><Refresh /></el-icon> 立即检测
+        <el-icon><Refresh /></el-icon> {{ $t('tools.check_now') }}
       </el-button>
     </div>
   </div>
@@ -42,6 +42,7 @@ import { onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { useTimeSync } from '@/features/tools/composables/useTimeSync'
+import { i18n } from '@/locales'
 
 const {
   localTime,
@@ -54,13 +55,14 @@ const {
 } = useTimeSync()
 
 const formatTime = (ts) => new Date(ts).toLocaleTimeString()
+const { t } = i18n.global
 
 const syncTime = async () => {
   const result = await _syncTime()
   if (result.success) {
-    ElMessage.success(`校准完成，偏差 ${result.offset}ms`)
+    ElMessage.success(t('tools.sync_completed', { offset: result.offset }))
   } else {
-    ElMessage.error(result.error?.message || '无法连接服务器')
+    ElMessage.error(result.error?.message || t('api_errors.request_failed'))
   }
 }
 

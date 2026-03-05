@@ -6,9 +6,9 @@
         <!-- 1. Secret Input (Tabs) -->
         <div class="config-section">
           <div class="section-header">
-            <h3 class="section-title">密钥配置</h3>
+            <h3 class="section-title">{{ $t('tools.secret_config') }}</h3>
             <el-button link type="primary" @click="showScanner = true">
-              <el-icon><Camera /></el-icon> 识别二维码导入
+              <el-icon><Camera /></el-icon> {{ $t('vault.scan_qr') }}
             </el-button>
           </div>
           
@@ -23,12 +23,12 @@
                 :rows="3"
               />
               <div class="tab-actions">
-                <el-button size="small" @click="refreshBase32"><el-icon><Refresh /></el-icon> 随机生成</el-button>
-                <el-button size="small" @click="copyToClipboard(secretBase32)"><el-icon><CopyDocument /></el-icon> 复制</el-button>
+                <el-button size="small" @click="refreshBase32"><el-icon><Refresh /></el-icon> {{ $t('tools.regenerate') }}</el-button>
+                <el-button size="small" @click="copyToClipboard(secretBase32)"><el-icon><CopyDocument /></el-icon> {{ $t('common.copy') }}</el-button>
               </div>
             </el-tab-pane>
             
-            <el-tab-pane label="Hex (十六进制)" name="hex">
+            <el-tab-pane :label="$t('tools.totp_hex')" name="hex">
               <el-input 
                 v-model="secretHex" 
                 @input="handleHexInput" 
@@ -38,8 +38,8 @@
                 :rows="3"
               />
               <div class="tab-actions">
-                <el-button size="small" @click="refreshHex"><el-icon><Refresh /></el-icon> 随机生成</el-button>
-                <el-button size="small" @click="copyToClipboard(secretHex)"><el-icon><CopyDocument /></el-icon> 复制</el-button>
+                <el-button size="small" @click="refreshHex"><el-icon><Refresh /></el-icon> {{ $t('tools.regenerate') }}</el-button>
+                <el-button size="small" @click="copyToClipboard(secretHex)"><el-icon><CopyDocument /></el-icon> {{ $t('common.copy') }}</el-button>
               </div>
             </el-tab-pane>
             
@@ -53,8 +53,8 @@
                 :rows="3"
               />
               <div class="tab-actions">
-                <el-button size="small" @click="refreshAscii"><el-icon><Refresh /></el-icon> 随机生成</el-button>
-                <el-button size="small" @click="copyToClipboard(secretAscii)"><el-icon><CopyDocument /></el-icon> 复制</el-button>
+                <el-button size="small" @click="refreshAscii"><el-icon><Refresh /></el-icon> {{ $t('tools.regenerate') }}</el-button>
+                <el-button size="small" @click="copyToClipboard(secretAscii)"><el-icon><CopyDocument /></el-icon> {{ $t('common.copy') }}</el-button>
               </div>
             </el-tab-pane>
           </el-tabs>
@@ -62,13 +62,13 @@
 
         <!-- 2. Metadata -->
         <div class="config-section">
-          <h3 class="section-title">基础信息</h3>
+          <h3 class="section-title">{{ $t('tools.basic_info') }}</h3>
           <div class="meta-row">
             <el-input v-model="issuer" @input="updateUri">
-              <template #prefix><span class="input-label">服务商</span></template>
+              <template #prefix><span class="input-label">{{ $t('vault.service') }}</span></template>
             </el-input>
             <el-input v-model="account" @input="updateUri">
-              <template #prefix><span class="input-label">账号标识</span></template>
+              <template #prefix><span class="input-label">{{ $t('vault.account') }}</span></template>
             </el-input>
           </div>
         </div>
@@ -76,23 +76,23 @@
         <!-- 3. Result Preview -->
         <div class="config-section">
           <div class="section-header">
-            <h3 class="section-title">结果预览</h3>
+            <h3 class="section-title">{{ $t('tools.preview') }}</h3>
             <el-button link type="primary" @click="downloadQrCode" :disabled="!qrCodeUrl">
-              <el-icon><Download /></el-icon> 保存二维码
+              <el-icon><Download /></el-icon> {{ $t('common.save') }}
             </el-button>
           </div>
           <div class="preview-top-section">
             <div class="qr-wrapper" v-loading="!qrCodeUrl">
               <img v-if="qrCodeUrl" :src="qrCodeUrl" alt="QR Code" class="qr-img" />
-              <el-empty v-else description="配置参数以生成预览" :image-size="100" />
+              <el-empty v-else :description="$t('tools.totp_config_preview')" :image-size="100" />
             </div>
             <div class="result-card">
               <div class="totp-code" :class="{ 'blur': !currentCode }">{{ currentCode || '------' }}</div>
               <div class="totp-timer" :class="{ 'urgent': remaining < 5 }">
-                <el-icon><Timer /></el-icon> {{ remaining }}s 后刷新
+                <el-icon><Timer /></el-icon> {{ remaining }}s {{ $t('tools.refresh_after') }}
               </div>
-              <el-button type="primary" plain size="small" @click="copyToClipboard(currentCode, '验证码已复制')" :disabled="!currentCode" style="margin-top: 10px;">
-                <el-icon><CopyDocument /></el-icon> 复制验证码
+              <el-button type="primary" plain size="small" @click="copyToClipboard(currentCode, $t('vault.copy_success'))" :disabled="!currentCode" style="margin-top: 10px;">
+                <el-icon><CopyDocument /></el-icon> {{ $t('common.copy') }}
               </el-button>
             </div>
           </div>
@@ -105,20 +105,20 @@
         <!-- 4. Advanced Settings -->
         <div class="config-section">
           <el-collapse>
-            <el-collapse-item title="高级设置 (算法/位数/步长)" name="1">
+            <el-collapse-item :title="$t('tools.advanced_settings')" name="1">
               <div class="advanced-row">
-                <el-select v-model="algorithm" @change="updateAll('settings')" placeholder="算法" style="flex: 1">
-                  <el-option label="SHA-1 (默认)" value="SHA-1" />
+                <el-select v-model="algorithm" @change="updateAll('settings')" :placeholder="$t('tools.totp_algorithm')" style="flex: 1">
+                  <el-option :label="$t('tools.totp_algo_sha1_default')" value="SHA-1" />
                   <el-option label="SHA-256" value="SHA-256" />
                   <el-option label="SHA-512" value="SHA-512" />
                 </el-select>
-                <el-select v-model="digits" @change="updateAll('settings')" placeholder="位数" style="width: 100px">
-                  <el-option label="6 位" :value="6" />
-                  <el-option label="8 位" :value="8" />
+                <el-select v-model="digits" @change="updateAll('settings')" :placeholder="$t('tools.totp_digits')" style="width: 100px">
+                  <el-option :label="$t('vault.digits_6')" :value="6" />
+                  <el-option :label="$t('vault.digits_8')" :value="8" />
                 </el-select>
-                <el-select v-model="period" @change="updateAll('settings')" placeholder="周期" style="width: 100px">
-                  <el-option label="30 秒" :value="30" />
-                  <el-option label="60 秒" :value="60" />
+                <el-select v-model="period" @change="updateAll('settings')" :placeholder="$t('tools.totp_period')" style="width: 100px">
+                  <el-option :label="$t('vault.period_30s')" :value="30" />
+                  <el-option :label="$t('vault.period_60s')" :value="60" />
                 </el-select>
               </div>
             </el-collapse-item>
@@ -128,26 +128,26 @@
         <!-- 5. Time Offset -->
         <div class="config-section">
           <div class="label-row">
-            <span class="label-text">时间偏移 (Time Travel): {{ timeOffset > 0 ? '+' : '' }}{{ timeOffset }}s</span>
-            <el-button link type="primary" @click="adjustTime(0, true)" size="small">重置</el-button>
+            <span class="label-text">{{ $t('tools.time_offset') }} (Time Travel): {{ timeOffset > 0 ? '+' : '' }}{{ timeOffset }}s</span>
+            <el-button link type="primary" @click="adjustTime(0, true)" size="small">{{ $t('tools.reset_time') }}</el-button>
           </div>
           <el-button-group style="width: 100%; display: flex;">
-            <el-button @click="adjustTime(-period)" style="flex:1" size="small">上个周期</el-button>
-            <el-button @click="adjustTime(period)" style="flex:1" size="small">下个周期</el-button>
+            <el-button @click="adjustTime(-period)" style="flex:1" size="small">{{ $t('tools.prev_period') }}</el-button>
+            <el-button @click="adjustTime(period)" style="flex:1" size="small">{{ $t('tools.next_period') }}</el-button>
           </el-button-group>
         </div>
 
         <!-- Save Button -->
         <div class="config-section" style="margin-top: 20px;">
           <el-button type="success" size="large" @click="saveToVault" style="width: 100%;" :loading="isSaving">
-            <el-icon><CircleCheck /></el-icon> 保存到我的账户
+            <el-icon><CircleCheck /></el-icon> {{ $t('tools.save_to_vault') }}
           </el-button>
         </div>
       </div>
     </div>
     
     <!-- 二维码扫描弹窗 -->
-    <el-dialog v-model="showScanner" title="扫描二维码" width="500px" destroy-on-close append-to-body>
+    <el-dialog v-model="showScanner" :title="$t('tools.totp_scan_qr_title')" width="500px" destroy-on-close append-to-body>
       <QrScanner @scan-success="handleScanSuccess" />
     </el-dialog>
   </div>

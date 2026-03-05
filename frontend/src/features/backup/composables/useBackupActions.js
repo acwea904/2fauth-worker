@@ -3,8 +3,10 @@ import { ElMessage, ElNotification } from 'element-plus'
 import { backupService } from '@/features/backup/service/backupService'
 import { dataMigrationService } from '@/features/migration/service/dataMigrationService'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
+import { i18n } from '@/locales'
 
 export function useBackupActions(emit, fetchProviders) {
+    const { t } = i18n.global
     const vaultStore = useVaultStore()
 
     // Backup Action State
@@ -33,7 +35,7 @@ export function useBackupActions(emit, fetchProviders) {
 
     const handleBackup = async () => {
         if (!useAutoPassword.value && backupPassword.value.length < 12) {
-            return ElMessage.warning('密码至少12位')
+            return ElMessage.warning(t('backup.password_min_length'))
         }
 
         const pwdToSend = useAutoPassword.value ? '' : backupPassword.value
@@ -43,8 +45,8 @@ export function useBackupActions(emit, fetchProviders) {
             const res = await backupService.triggerBackup(currentActionProvider.value.id, pwdToSend)
             if (res.success) {
                 ElNotification({
-                    title: '云端备份完成',
-                    message: `<div style="color:var(--el-color-success)">🎉 成功备份了数据</div>`,
+                    title: t('backup.backup_finish_title'),
+                    message: `<div style="color:var(--el-color-success)">🎉 ${t('backup.backup_success_msg')}</div>`,
                     dangerouslyUseHTMLString: true,
                     type: 'success',
                     duration: 5000
@@ -66,7 +68,7 @@ export function useBackupActions(emit, fetchProviders) {
             const res = await backupService.getBackupFiles(provider.id)
             if (res.success) backupFiles.value = res.files
         } catch (e) {
-            ElMessage.error(e.message || '获取备份文件失败')
+            ElMessage.error(e.message || t('backup.fetch_backup_fail'))
         } finally { isLoadingFiles.value = false }
     }
 
@@ -93,16 +95,16 @@ export function useBackupActions(emit, fetchProviders) {
             const saveRes = await dataMigrationService.saveImportedVault(vault)
 
             if (saveRes.success) {
-                let msgHtml = `<div>共处理 <b>1</b> 个备份文件 (${vault.length} 个基准账号)。</div>`
+                let msgHtml = `<div>${t('backup.processed_total')} <b>1</b> ${t('backup.backup_files_count')} (${vault.length} ${t('backup.base_accounts_count')})。</div>`
                 if (saveRes.count > 0) {
-                    msgHtml += `<div style="color:var(--el-color-success)">🎉 成功导入 <b>${saveRes.count}</b> 个新账户！</div>`
+                    msgHtml += `<div style="color:var(--el-color-success)">🎉 ${t('backup.import_success_count')} <b>${saveRes.count}</b> ${t('backup.new_accounts')}</div>`
                 } else {
-                    msgHtml += `<div style="color:var(--el-color-warning)">⚠️ 恢复的账户皆已存在，无新添项。</div>`
+                    msgHtml += `<div style="color:var(--el-color-warning)">⚠️ ${t('backup.no_new_accounts')}</div>`
                 }
-                if (saveRes.duplicates > 0) msgHtml += `<div style="color:var(--el-text-color-secondary)">ℹ️ 自动跳过了 <b>${saveRes.duplicates}</b> 个已有账户。</div>`
+                if (saveRes.duplicates > 0) msgHtml += `<div style="color:var(--el-text-color-secondary)">ℹ️ ${t('backup.skipped_duplicates')} <b>${saveRes.duplicates}</b> ${t('backup.existing_accounts')}</div>`
 
                 ElNotification({
-                    title: '恢复数据结束',
+                    title: t('backup.restore_finish_title'),
                     message: msgHtml,
                     dangerouslyUseHTMLString: true,
                     type: 'success',
@@ -117,7 +119,7 @@ export function useBackupActions(emit, fetchProviders) {
                 }
             }
         } catch (e) {
-            ElMessage.error(e.message || '恢复失败')
+            ElMessage.error(e.message || t('backup.restore_fail'))
         } finally { isRestoring.value = false }
     }
 

@@ -2,6 +2,7 @@ import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import QRCode from 'qrcode'
 import { vaultService } from '@/features/vault/service/vaultService'
+import { i18n } from '@/locales'
 
 /**
  * TOTP 工具箱外部协同调度逻辑
@@ -11,6 +12,7 @@ import { vaultService } from '@/features/vault/service/vaultService'
  * 这保证了 useTotpToolbox.js 作为纯状态机，不涉及第三方 UI 或非标准 API 边界效应。
  */
 export function useTotpToolboxActions(toolboxState, queryClient) {
+    const { t } = i18n.global
     const isSaving = ref(false)
     const showScanner = ref(false)
     const qrCodeUrl = ref('')
@@ -32,15 +34,15 @@ export function useTotpToolboxActions(toolboxState, queryClient) {
         showScanner.value = false
         const success = toolboxState.handleParsedUri(uri)
         if (success) {
-            ElMessage.success('二维码解析成功')
+            ElMessage.success(t('tools.qr_parsed'))
         } else {
-            ElMessage.warning('无效的 OTP URI')
+            ElMessage.warning(t('vault.generate_fail'))
         }
     }
 
     const saveToVault = async () => {
-        if (!toolboxState.secretBase32.value) return ElMessage.warning('密钥不能为空')
-        if (!toolboxState.issuer.value || !toolboxState.account.value) return ElMessage.warning('请填写服务商和账号')
+        if (!toolboxState.secretBase32.value) return ElMessage.warning(t('tools.secret_empty'))
+        if (!toolboxState.issuer.value || !toolboxState.account.value) return ElMessage.warning(t('tools.fill_info'))
 
         isSaving.value = true
         try {
@@ -50,10 +52,10 @@ export function useTotpToolboxActions(toolboxState, queryClient) {
                 secret: toolboxState.secretBase32.value,
                 digits: toolboxState.digits.value,
                 period: toolboxState.period.value,
-                category: '工具箱添加'
+                category: t('tools.title')
             })
             if (res.success) {
-                ElMessage.success('已保存到我的账户')
+                ElMessage.success(t('vault.add_success'))
                 // 刷新账号列表缓存
                 queryClient.invalidateQueries(['vault'])
             }

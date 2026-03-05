@@ -4,8 +4,8 @@
       <el-result
         v-if="!errorMsg"
         icon="info"
-        title="正在安全登录中"
-        :sub-title="`请稍候，系统正在与 ${providerName} 交换安全凭证...`"
+        :title="$t('auth.secure_login_in_progress')"
+        :sub-title="$t('auth.secure_login_sub', { provider: providerName })"
       >
         <template #extra>
           <el-icon class="is-loading" :size="40" color="#409eff"><Loading /></el-icon>
@@ -15,11 +15,11 @@
       <el-result
         v-else
         icon="error"
-        title="授权失败"
+        :title="$t('auth.auth_failed_title')"
         :sub-title="errorMsg"
       >
         <template #extra>
-          <el-button type="primary" @click="goBackToLogin">返回登录页</el-button>
+          <el-button type="primary" @click="goBackToLogin">{{ $t('auth.back_to_login') }}</el-button>
         </template>
       </el-result>
     </el-card>

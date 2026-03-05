@@ -2,8 +2,8 @@
   <div class="data-export-wrapper">
     <div class="tab-card-wrapper">
       <div style="text-align: center; margin-bottom: 30px;">
-        <h2>数据导出</h2>
-        <p style="color: var(--el-text-color-secondary);">选择您需要的导出格式。请注意，明文导出存在安全风险。</p>
+        <h2>{{ $t('migration.export') }}</h2>
+        <p style="color: var(--el-text-color-secondary);">{{ $t('migration.export_desc') }}</p>
       </div>
 
       <div class="export-groups" v-loading="isExporting" :element-loading-text="loadingText">
@@ -12,14 +12,14 @@
         <div class="export-group-card">
           <div class="group-header">
             <el-icon><Lock /></el-icon>
-            <span>本系统备份</span>
+            <span>{{ $t('migration.system_backup') }}</span>
           </div>
           <div class="button-row">
             <el-button plain @click="openExportDialog('encrypted')" class="button-with-icon">
-              <el-icon><Lock /></el-icon> 加密备份 (.json)
+              <el-icon><Lock /></el-icon> {{ $t('migration.encrypted_json') }}
             </el-button>
             <el-button plain @click="openWarningDialog('json')" class="button-with-icon">
-              <el-icon><Unlock /></el-icon> 明文备份 (.json)
+              <el-icon><Unlock /></el-icon> {{ $t('migration.plaintext_json') }}
             </el-button>
           </div>
         </div>
@@ -28,7 +28,7 @@
         <div class="export-group-card">
           <div class="group-header">
             <el-icon><Iphone /></el-icon>
-            <span>移动端 2FA App</span>
+            <span>{{ $t('migration.mobile_app') }}</span>
           </div>
           <div class="button-row">
             <el-button plain @click="openWarningDialog('2fas')" class="button-with-icon">
@@ -38,7 +38,7 @@
               <el-icon><iconAegis /></el-icon> Aegis (.json)
             </el-button>
             <el-button plain @click="openGaDialogDirectly" class="button-with-icon">
-              <el-icon><iconGoogleAuth /></el-icon> 迁移到 Google Auth
+              <el-icon><iconGoogleAuth /></el-icon> {{ $t('migration.migrate_ga') }}
             </el-button>
             <el-button plain @click="openWarningDialog('bwauth')" class="button-with-icon">
               <el-icon><iconBitwarden /></el-icon> Bitwarden Auth (.json)
@@ -50,20 +50,20 @@
         <div class="export-group-card">
           <div class="group-header">
             <el-icon><Document /></el-icon>
-            <span>通用格式</span>
+            <span>{{ $t('migration.generic_format') }}</span>
           </div>
           <div class="button-row">
             <el-button plain @click="openWarningDialog('generic_json')" class="button-with-icon">
-              <el-icon><Document /></el-icon> 通用格式 (.json)
+              <el-icon><Document /></el-icon> {{ $t('migration.generic_format') }} (.json)
             </el-button>
             <el-button plain @click="openWarningDialog('text')" class="button-with-icon">
-              <el-icon><Tickets /></el-icon> OTPAuth URI (.txt)
+              <el-icon><Tickets /></el-icon> {{ $t('migration.otpauth_txt') }}
             </el-button>
             <el-button plain @click="openWarningDialog('csv', 'generic')" class="button-with-icon">
-              <el-icon><Grid /></el-icon> 电子表格 (.csv)
+              <el-icon><Grid /></el-icon> {{ $t('migration.spreadsheet_csv') }}
             </el-button>
             <el-button plain @click="openWarningDialog('html')" class="button-with-icon">
-              <el-icon><Monitor /></el-icon> 普通网页 (.html)
+              <el-icon><Monitor /></el-icon> {{ $t('migration.html_page') }}
             </el-button>
           </div>
         </div>
@@ -72,60 +72,60 @@
     </div>
 
     <!-- 加密导出密码弹窗 -->
-    <el-dialog v-model="showPasswordDialog" title="设置导出密码" width="400px" destroy-on-close>
+    <el-dialog v-model="showPasswordDialog" :title="$t('migration.export_pwd_title')" width="400px" destroy-on-close>
       <el-form :model="exportForm" label-position="top">
-        <el-form-item label="加密密码 (至少 12 位)">
-          <el-input v-model="exportForm.password" type="password" show-password placeholder="请输入高强度密码" />
+        <el-form-item :label="$t('migration.export_password')">
+          <el-input v-model="exportForm.password" type="password" show-password :placeholder="$t('migration.pwd_placeholder_strong')" />
         </el-form-item>
-        <el-form-item label="确认密码">
-          <el-input v-model="exportForm.confirm" type="password" show-password @keyup.enter="executeExport" placeholder="请再次输入" />
+        <el-form-item :label="$t('migration.export_password_confirm')">
+          <el-input v-model="exportForm.confirm" type="password" show-password @keyup.enter="executeExport" :placeholder="$t('migration.pwd_placeholder_again')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showPasswordDialog = false">取消</el-button>
-        <el-button type="primary" :loading="isExporting" @click="executeExport">开始加密并下载</el-button>
+        <el-button @click="showPasswordDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="isExporting" @click="executeExport">{{ $t('migration.start_encrypt_dl') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 明文导出风险提示弹窗 -->
-    <el-dialog v-model="showWarningDialog" title="⚠️ 安全警告" width="400px" destroy-on-close>
-      <el-alert title="风险提示" type="error" :closable="false" description="您正在导出未加密的明文数据。任何获取该文件/图片的人都可以直接访问您的账号验证码！" show-icon />
+    <el-dialog v-model="showWarningDialog" :title="$t('migration.warning_title')" width="400px" destroy-on-close>
+      <el-alert :title="$t('migration.warning_alert_title')" type="error" :closable="false" :description="$t('migration.warning_desc')" show-icon />
       <template #footer>
-        <el-button @click="showWarningDialog = false">取消</el-button>
-        <el-button type="danger" @click="executeExport" :loading="isExporting">确定导出</el-button>
+        <el-button @click="showWarningDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="danger" @click="executeExport" :loading="isExporting">{{ $t('migration.confirm_export') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- Google Auth 二维码弹窗 -->
-    <el-dialog v-model="showGaDialog" title="迁移到 Google Authenticator" width="450px" style="text-align: center" destroy-on-close>
+    <el-dialog v-model="showGaDialog" :title="$t('migration.ga_title')" width="450px" style="text-align: center" destroy-on-close>
       <div v-if="gaQrDataUrls.length > 0">
         <p style="margin-bottom: 10px; color: var(--el-text-color-secondary);">
-          打开手机上的 Google Authenticator，选择"扫描二维码"进行导入<br/>
+          {{ $t('migration.ga_desc_1') }}<br/>
           <span v-if="gaQrDataUrls.length > 1" style="color: var(--el-color-warning); font-weight: bold;">
-            (账号较多，已分批生成，请依次扫码)
+            {{ $t('migration.ga_desc_multiple') }}
           </span>
         </p>
         <div v-loading="isExporting" style="min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
           <img :src="gaQrDataUrls[gaCurrentIndex]" alt="Google Auth Migration QR" style="max-width: 100%; padding: 10px; margin-bottom: 15px;" />
           
           <div v-if="gaQrDataUrls.length > 1" style="display: flex; align-items: center; gap: 15px; justify-content: center;">
-            <el-button :disabled="gaCurrentIndex === 0" @click="gaCurrentIndex--" size="small">上一张</el-button>
+            <el-button :disabled="gaCurrentIndex === 0" @click="gaCurrentIndex--" size="small">{{ $t('migration.btn_prev') }}</el-button>
             <span style="font-size: 14px; font-weight: bold;">{{ gaCurrentIndex + 1 }} / {{ gaQrDataUrls.length }}</span>
-            <el-button :disabled="gaCurrentIndex === gaQrDataUrls.length - 1" @click="gaCurrentIndex++" size="small" type="primary">下一张</el-button>
+            <el-button :disabled="gaCurrentIndex === gaQrDataUrls.length - 1" @click="gaCurrentIndex++" size="small" type="primary">{{ $t('migration.btn_next') }}</el-button>
           </div>
         </div>
       </div>
       <div v-else v-loading="isExporting" style="min-height: 200px;"></div>
       <template #footer>
-        <el-button @click="showGaDialog = false">完成</el-button>
+        <el-button @click="showGaDialog = false">{{ $t('migration.finish') }}</el-button>
       </template>
     </el-dialog>
     <!-- 账号选择弹窗 (用于 Google Auth 选择性导出) -->
-    <el-dialog v-model="showAccountSelectDialog" title="选择要导出的账号" width="450px" destroy-on-close>
+    <el-dialog v-model="showAccountSelectDialog" :title="$t('migration.select_account_title')" width="450px" destroy-on-close>
       <div class="account-select-toolbar">
         <el-input 
           v-model="searchKeyword" 
-          placeholder="搜索服务或账号..." 
+          :placeholder="$t('migration.search_account')" 
           clearable 
           :prefix-icon="Search"
           style="margin-bottom: 15px;"
@@ -138,7 +138,7 @@
           >
             {{ selectAllText }}
           </el-checkbox>
-          <span class="selected-count">已选: {{ selectedAccountIds.length }} / {{ fullVault.length }}</span>
+          <span class="selected-count">{{ $t('migration.selected_count', { selected: selectedAccountIds.length, total: fullVault.length }) }}</span>
         </div>
       </div>
       
@@ -155,14 +155,14 @@
                 </el-checkbox>
               </div>
             </template>
-            <el-empty v-else description="无匹配账号" :image-size="60" />
+            <el-empty v-else :description="$t('migration.no_matching')" :image-size="60" />
           </el-scrollbar>
         </el-checkbox-group>
       </div>
       
       <template #footer>
-        <el-button @click="showAccountSelectDialog = false">取消</el-button>
-        <el-button type="primary" :loading="isExporting" @click="executeGaExport">迁移 {{ selectedAccountIds.length }} 个账号</el-button>
+        <el-button @click="showAccountSelectDialog = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="isExporting" @click="executeGaExport">{{ $t('migration.migrate_btn', { count: selectedAccountIds.length }) }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -179,6 +179,7 @@ import iconAegis from '@/shared/components/icons/iconAegis.vue'
 import iconGoogleAuth from '@/shared/components/icons/iconGoogleAuth.vue'
 import iconBitwarden from '@/shared/components/icons/iconBitwarden.vue'
 import { useDataExport } from '@/features/migration/composables/useDataExport'
+import { i18n } from '@/locales'
 
 const {
   showPasswordDialog,
@@ -206,10 +207,11 @@ const {
 
 // 动态计算“全选”按钮文案
 const selectAllText = computed(() => {
+  const { t } = i18n.global
   if (!searchKeyword.value || searchKeyword.value.trim() === '') {
-    return '全选所有账号'
+    return t('migration.select_all_accounts')
   } else {
-    return `全选搜索出的 ${filteredVault.value.length} 个账号`
+    return t('migration.select_all_search', { count: filteredVault.value.length })
   }
 })
 

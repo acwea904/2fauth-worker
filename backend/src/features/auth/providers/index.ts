@@ -22,13 +22,13 @@ export function getOAuthProvider(providerId: string, env: EnvBindings): BaseOAut
         case 'google':
             return new GoogleProvider(env);
         default:
-            throw new AppError(`Provider '${providerId}' is not supported`, 400);
+            throw new AppError(`unsupported_provider: ${providerId}`, 400);
     }
 }
 
 export function getAvailableProviders(env: EnvBindings) {
     const providers = [];
-    
+
     const githubProvider = new GitHubProvider(env);
     const cloudflareProvider = new CloudflareAccessProvider(env);
     const nodelocProvider = new NodeLocProvider(env);

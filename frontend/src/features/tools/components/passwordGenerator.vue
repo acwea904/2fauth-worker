@@ -2,14 +2,14 @@
   <div class="tool-pane">
     <div class="result-box">
       <div class="password-display">{{ password }}</div>
-      <el-button type="primary" link @click="copyPassword" title="复制">
+      <el-button type="primary" link @click="copyPassword" :title="$t('common.copy')">
         <el-icon size="20"><CopyDocument /></el-icon>
       </el-button>
     </div>
     
     <div class="controls">
       <div class="control-row">
-        <span class="label">长度: {{ length }}</span>
+        <span class="label">{{ $t('tools.length') }}: {{ length }}</span>
         <el-slider v-model="length" :min="6" :max="64" @input="generate" style="flex: 1; margin: 0 15px;" />
       </div>
       
@@ -22,7 +22,7 @@
     </div>
 
     <el-button type="primary" size="large" @click="generate" style="width: 100%; margin-top: 20px;">
-      <el-icon><Refresh /></el-icon> 重新生成
+      <el-icon><Refresh /></el-icon> {{ $t('tools.regenerate') }}
     </el-button>
   </div>
 </template>
@@ -31,6 +31,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { CopyDocument, Refresh } from '@element-plus/icons-vue'
+import { i18n } from '@/locales'
 
 const password = ref('')
 const length = ref(16)
@@ -38,6 +39,7 @@ const useUpper = ref(true)
 const useLower = ref(true)
 const useNumber = ref(true)
 const useSymbol = ref(true)
+const { t } = i18n.global
 
 const generate = () => {
   let chars = ''
@@ -48,7 +50,7 @@ const generate = () => {
   
   if (!chars) {
     password.value = ''
-    ElMessage.warning('请至少选择一种字符类型')
+    ElMessage.warning(t('tools.select_one_char_type'))
     return
   }
   
@@ -65,9 +67,9 @@ const copyPassword = async () => {
   if (!password.value) return
   try {
     await navigator.clipboard.writeText(password.value)
-    ElMessage.success('密码已复制')
+    ElMessage.success(t('tools.password_copied'))
   } catch (e) {
-    ElMessage.error('复制失败')
+    ElMessage.error(t('common.error'))
   }
 }
 

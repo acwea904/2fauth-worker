@@ -1,8 +1,8 @@
 <template>
   <div class="qr-scanner-container">
     <el-radio-group v-model="scannerMode" style="margin-bottom: 20px; width: 100%; display: flex; justify-content: center;" @change="handleModeChange">
-      <el-radio-button label="camera">摄像头扫描</el-radio-button>
-      <el-radio-button label="image">图片识别</el-radio-button>
+      <el-radio-button label="camera">{{ $t('tools.scanner_camera') }}</el-radio-button>
+      <el-radio-button label="image">{{ $t('tools.scanner_image') }}</el-radio-button>
     </el-radio-group>
 
     <!-- Camera Mode -->
@@ -15,10 +15,10 @@
       </div>
       <div v-if="!isScanning" class="camera-placeholder" @click="toggleCamera">
         <el-icon :size="48" color="#909399"><Camera /></el-icon>
-        <p>点击开启摄像头</p>
+        <p>{{ $t('tools.camera_click_to_open') }}</p>
       </div>
       <el-button :type="isScanning ? 'danger' : 'primary'" @click="toggleCamera" style="margin-top: 15px; width: 100%;" :loading="isStarting">
-        {{ isScanning ? '停止扫描' : '开启摄像头' }}
+        {{ isScanning ? $t('tools.camera_stop') : $t('tools.camera_open') }}
       </el-button>
     </div>
 
@@ -28,7 +28,7 @@
         <img v-if="previewImg" :src="previewImg" class="preview-img" />
         <div v-else class="upload-placeholder">
           <el-icon :size="48" color="#909399"><Picture /></el-icon>
-          <p>点击选择或拖拽二维码图片</p>
+          <p>{{ $t('tools.image_placeholder') }}</p>
         </div>
       </div>
       <input type="file" ref="fileInputRef" accept="image/*" style="display: none" @change="handleFileUpload" />
@@ -41,8 +41,10 @@ import { ref, onBeforeUnmount, nextTick } from 'vue'
 import { Camera, Picture, Upload } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import jsQR from 'jsqr'
+import { i18n } from '@/locales'
 
 const emit = defineEmits(['scan-success'])
+const { t } = i18n.global
 
 const scannerMode = ref('camera')
 const videoRef = ref(null)
@@ -70,7 +72,7 @@ const toggleCamera = () => {
 
 const startCamera = async () => {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    ElMessage.error('您的浏览器不支持摄像头功能')
+    ElMessage.error(t('tools.camera_unsupported'))
     return
   }
   
@@ -93,7 +95,7 @@ const startCamera = async () => {
     }
   } catch (err) {
     isStarting.value = false
-    ElMessage.error('无法访问摄像头，请检查权限设置')
+    ElMessage.error(t('tools.camera_access_denied'))
     console.error('Camera error:', err)
   }
 }
@@ -161,7 +163,7 @@ const handleFileUpload = (e) => {
       if (code && code.data) {
         emit('scan-success', code.data)
       } else {
-        ElMessage.error('未能从图片中识别出有效的二维码')
+        ElMessage.error(t('tools.qr_not_recognized'))
       }
     }
     img.src = event.target.result

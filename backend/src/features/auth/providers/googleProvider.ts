@@ -17,7 +17,7 @@ export class GoogleProvider extends BaseOAuthProvider {
         const redirectUri = this.env.OAUTH_GOOGLE_REDIRECT_URI;
 
         if (!clientId || !redirectUri) {
-            throw new AppError('Google OAuth configuration incomplete', 500);
+            throw new AppError('oauth_config_incomplete', 500);
         }
 
         const params = new URLSearchParams({
@@ -37,7 +37,7 @@ export class GoogleProvider extends BaseOAuthProvider {
         const code = typeof params === 'string' ? params : params.get('code');
 
         if (!code) {
-            throw new AppError('Google OAuth callback missing code', 400);
+            throw new AppError('oauth_code_missing', 400);
         }
 
         const clientId = this.env.OAUTH_GOOGLE_CLIENT_ID;
@@ -45,7 +45,7 @@ export class GoogleProvider extends BaseOAuthProvider {
         const redirectUri = this.env.OAUTH_GOOGLE_REDIRECT_URI;
 
         if (!clientId || !clientSecret || !redirectUri) {
-            throw new AppError('Google OAuth configuration incomplete', 500);
+            throw new AppError('oauth_config_incomplete', 500);
         }
 
         // 1. Exchange Code for Token
@@ -65,7 +65,7 @@ export class GoogleProvider extends BaseOAuthProvider {
 
         if (!tokenResponse.ok) {
             const errText = await tokenResponse.text();
-            throw new AppError(`Google Token Exchange failed: ${tokenResponse.status} - ${errText}`, 502);
+            throw new AppError(`oauth_token_exchange_failed: Google  | ${tokenResponse.status} - ${errText}`, 502);
         }
 
         const tokenData: any = await tokenResponse.json();
@@ -78,7 +78,7 @@ export class GoogleProvider extends BaseOAuthProvider {
             }
         });
 
-        if (!userResponse.ok) throw new AppError(`Google API error: ${userResponse.status}`, 502);
+        if (!userResponse.ok) throw new AppError(`oauth_api_error: Google  | ${userResponse.status}`, 502);
         const userData: any = await userResponse.json();
 
         return {

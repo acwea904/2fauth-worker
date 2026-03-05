@@ -2,8 +2,10 @@ import { ref, computed, watch } from 'vue'
 import { ElMessage, ElNotification } from 'element-plus'
 import { dataMigrationService } from '@/features/migration/service/dataMigrationService'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
+import { i18n } from '@/locales'
 
 export function useDataImport(emitFn) {
+    const { t } = i18n.global
     const vaultStore = useVaultStore()
 
     // --- State ---
@@ -78,7 +80,7 @@ export function useDataImport(emitFn) {
         // We only proceed if we have at least *something*
         if (groupedCount === 0) return
 
-        batchCurrentTaskName.value = '构建数据：PhoneFactor 数据集'
+        batchCurrentTaskName.value = t('migration.task_build_pf')
         try {
             // we pass the entire group object to the service
             const vault = await dataMigrationService.parseImportData(group, 'phonefactor_group')
@@ -86,7 +88,7 @@ export function useDataImport(emitFn) {
         } catch (err) {
             console.error('[PhoneFactor Group] parseImportData failed:', err)
             const detail = err && err.message ? err.message : String(err)
-            batchErrors.value.push(`[PhoneFactor] 解析失败: ${detail}`)
+            batchErrors.value.push(t('migration.err_pf_parse', { detail }))
         } finally {
             batchProcessedJobs.value += groupedCount
             importingJobs.value -= groupedCount
@@ -97,13 +99,14 @@ export function useDataImport(emitFn) {
         const file = uploadFile.raw
         if (!file) return
 
+        // we pass the entire group object to the service
         if (file.size > 10 * 1024 * 1024) {
-            ElMessage.error(`文件 ${file.name} 太大，不能超过 10MB`)
+            ElMessage.error(t('migration.file_too_large', { name: file.name }))
             return
         }
 
         initBatchTask(1)
-        batchCurrentTaskName.value = `准备解析：${file.name}`
+        batchCurrentTaskName.value = t('migration.task_prepare', { name: file.name })
 
         if (file.type.startsWith('image/')) {
             await handleImageFile(file)
@@ -114,12 +117,12 @@ export function useDataImport(emitFn) {
 
     const handleImageFile = async (file) => {
         try {
-            batchCurrentTaskName.value = `截取图中二维码：${file.name}`
+            batchCurrentTaskName.value = t('migration.task_scan_qr', { name: file.name })
             const vault = await dataMigrationService.parseGaQrImageFile(file)
             batchAccumulatedVault.value.push(...vault)
         } catch (err) {
             console.error(err)
-            batchErrors.value.push(`[${file.name}] 解析图片失败: ${err.message}`)
+            batchErrors.value.push(t('migration.err_scan_qr', { name: file.name, msg: err.message }))
         } finally {
             batchProcessedJobs.value++
             importingJobs.value--
@@ -145,7 +148,7 @@ export function useDataImport(emitFn) {
                     }, 500)
                 }
                 reader.onerror = () => {
-                    batchErrors.value.push(`[${file.name}] 读取失败`)
+                    batchErrors.value.push(t('migration.err_read_fail', { name: file.name }))
                     batchProcessedJobs.value++
                     importingJobs.value--
                 }
@@ -165,7 +168,7 @@ export function useDataImport(emitFn) {
                 currentImportType.value = detectedType
 
                 if (detectedType === 'unknown') {
-                    batchErrors.value.push(`[${file.name}] 无法识别该文件格式。`)
+                    batchErrors.value.push(t('migration.err_unrecognized', { name: file.name }))
                     batchProcessedJobs.value++
                     importingJobs.value--
                     return
@@ -189,14 +192,14 @@ export function useDataImport(emitFn) {
                     return
                 }
 
-                batchCurrentTaskName.value = `构建数据：${file.name}`
+                batchCurrentTaskName.value = t('migration.task_build_file', { name: file.name })
                 try {
                     const vault = await dataMigrationService.parseImportData(contentForParse, detectedType)
                     batchAccumulatedVault.value.push(...vault)
                 } catch (err) {
                     console.error(`[${file.name}] parseImportData failed:`, err)
                     const detail = err && err.message ? err.message : String(err)
-                    batchErrors.value.push(`[${file.name}] 解析失败: ${detail}`)
+                    batchErrors.value.push(t('migration.err_parse_fail', { name: file.name, detail }))
                 } finally {
                     batchProcessedJobs.value++
                     importingJobs.value--
@@ -204,7 +207,7 @@ export function useDataImport(emitFn) {
             }
 
             reader.onerror = () => {
-                batchErrors.value.push(`[${file.name}] 读取失败`)
+                batchErrors.value.push(t('migration.err_read_fail', { name: file.name }))
                 batchProcessedJobs.value++
                 importingJobs.value--
             }
@@ -213,7 +216,7 @@ export function useDataImport(emitFn) {
 
         } catch (error) {
             console.error(error)
-            batchErrors.value.push(`[${file.name}] 读取异常`)
+            batchErrors.value.push(t('migration.err_read_abnormal', { name: file.name }))
             batchProcessedJobs.value++
             importingJobs.value--
         }
@@ -221,12 +224,12 @@ export function useDataImport(emitFn) {
 
     const submitEncryptedData = async () => {
         if (!importPassword.value) {
-            return ElMessage.warning('请输入解密密码')
+            return ElMessage.warning(t('migration.import_password'))
         }
 
         isDecrypting.value = true
         try {
-            batchCurrentTaskName.value = '正在使用密码解密数据...'
+            batchCurrentTaskName.value = t('migration.task_decrypting')
             const vault = await dataMigrationService.parseImportData(
                 currentFileContent.value,
                 currentImportType.value,
@@ -239,7 +242,7 @@ export function useDataImport(emitFn) {
             importingJobs.value--
         } catch (error) {
             console.error(error)
-            ElMessage.error(`解密失败：密码错误或不支持加密标准`)
+            ElMessage.error(t('migration.password_wrong'))
         } finally {
             isDecrypting.value = false
         }
@@ -247,7 +250,7 @@ export function useDataImport(emitFn) {
 
     const handleDecryptDialogClose = () => {
         if (!isDialogHandled.value) {
-            batchErrors.value.push(`[${currentFile.value?.name || '加密文件'}] 用户取消密码输入`)
+            batchErrors.value.push(t('migration.err_user_cancel', { name: currentFile.value?.name || t('migration.encrypted_file') }))
             batchProcessedJobs.value++
             importingJobs.value--
             isDialogHandled.value = true
@@ -259,14 +262,14 @@ export function useDataImport(emitFn) {
             showBatchProgress.value = false
             if (batchErrors.value.length > 0) {
                 ElNotification({
-                    title: '导入异常',
+                    title: t('migration.import_anomaly'),
                     message: batchErrors.value.join('<br>'),
                     type: 'error',
                     dangerouslyUseHTMLString: true,
                     duration: 0
                 })
             } else {
-                ElMessage.warning('没有可导入的有效账户数据')
+                ElMessage.warning(t('migration.no_valid_data'))
             }
             resetBatchState()
             return
@@ -284,28 +287,28 @@ export function useDataImport(emitFn) {
             }
         }
         batchAccumulatedVault.value = filteredVault;
-        batchCurrentTaskName.value = `合并保存中... (${batchAccumulatedVault.value.length} 个账号)`
+        batchCurrentTaskName.value = t('migration.task_saving', { count: batchAccumulatedVault.value.length })
 
         try {
             const data = await dataMigrationService.saveImportedVault(batchAccumulatedVault.value)
             showBatchProgress.value = false
 
             if (data.success) {
-                let msgHtml = `<div>共处理 <b>${batchTotalJobs.value}</b> 个文件。</div>`
+                let msgHtml = t('migration.msg_total_files', { count: batchTotalJobs.value })
                 if (data.count > 0) {
-                    msgHtml += `<div style="color:var(--el-color-success)">🎉 成功导入 <b>${data.count}</b> 个新账户！</div>`
+                    msgHtml += t('migration.msg_success_accounts', { count: data.count })
                 } else {
-                    msgHtml += `<div style="color:var(--el-color-warning)">⚠️ 导入账户皆已存在，无需添加。</div>`
+                    msgHtml += t('migration.msg_no_new_accounts')
                 }
 
-                if (data.duplicates > 0) msgHtml += `<div style="color:var(--el-text-color-secondary)">ℹ️ 自动跳过了 <b>${data.duplicates}</b> 个已拥有的账户。</div>`
+                if (data.duplicates > 0) msgHtml += t('migration.msg_duplicates_skipped', { count: data.duplicates })
 
                 if (batchErrors.value.length > 0) {
-                    msgHtml += `<div style="color:var(--el-color-danger); margin-top: 5px;">❌ <b>错误摘要：</b><br>${batchErrors.value.join('<br>')}</div>`
+                    msgHtml += t('migration.msg_error_summary', { errors: batchErrors.value.join('<br>') })
                 }
 
                 ElNotification({
-                    title: '批量导入结束',
+                    title: t('migration.batch_import_finished'),
                     message: msgHtml,
                     dangerouslyUseHTMLString: true,
                     type: batchErrors.value.length > 0 ? 'warning' : 'success',
@@ -317,11 +320,11 @@ export function useDataImport(emitFn) {
                     emitFn('success')
                 }
             } else {
-                ElMessage.error(`后端合并保存失败，请检查网络`)
+                ElMessage.error(t('api_errors.request_failed'))
             }
         } catch (err) {
             showBatchProgress.value = false
-            ElMessage.error(`最终保存异常：${err.message}`)
+            ElMessage.error(`${t('api_errors.request_failed')}: ${err.message}`)
         } finally {
             resetBatchState()
         }

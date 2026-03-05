@@ -2,8 +2,10 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { backupService } from '@/features/backup/service/backupService'
+import { i18n } from '@/locales'
 
 export function useBackupProviders() {
+    const { t } = i18n.global
     const vaultStore = useVaultStore()
 
     const providers = ref([])
@@ -78,17 +80,17 @@ export function useBackupProviders() {
     }
 
     const validateForm = () => {
-        if (!form.value.name) return '请输入名称'
+        if (!form.value.name) return t('backup.require_name')
         const c = form.value.config
         if (form.value.type === 'webdav') {
-            if (!c.url) return '请输入 WebDAV 地址'
-            if (!c.username) return '请输入用户名'
-            if (!c.password) return '请输入密码'
+            if (!c.url) return t('backup.require_webdav_url')
+            if (!c.username) return t('backup.require_username')
+            if (!c.password) return t('backup.require_password')
         } else if (form.value.type === 's3') {
-            if (!c.endpoint) return '请输入 Endpoint'
-            if (!c.bucket) return '请输入 Bucket'
-            if (!c.accessKeyId) return '请输入 Access Key ID'
-            if (!c.secretAccessKey) return '请输入 Secret Access Key'
+            if (!c.endpoint) return t('backup.require_endpoint')
+            if (!c.bucket) return t('backup.require_bucket')
+            if (!c.accessKeyId) return t('backup.require_access_key')
+            if (!c.secretAccessKey) return t('backup.require_secret_key')
         }
 
         if (form.value.autoBackup) {

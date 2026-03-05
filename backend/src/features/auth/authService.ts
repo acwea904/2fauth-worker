@@ -41,7 +41,7 @@ export class AuthService {
             });
             params = searchParams;
         } else {
-            if (!body.code) throw new AppError('Missing OAuth code', 400);
+            if (!body.code) throw new AppError('oauth_code_missing', 400);
             params = body.code;
         }
 
@@ -104,11 +104,11 @@ export class AuthService {
             }
 
             if (!isAllowed) {
-                throw new AppError(`Unauthorized user. Email: ${userEmail}, Username: ${userName}`, 403);
+                throw new AppError('unauthorized_user', 403);
             }
         } else {
             // 默认安全策略：如果未配置白名单，未开启 ALLOW_ALL，则拒绝所有人（或者也可以记录警告，但为了安全通常应拒绝）
-            throw new AppError(`No authorization whitelist configured. Login denied.`, 403);
+            throw new AppError('not_whitelisted', 403);
         }
     }
 
@@ -127,7 +127,7 @@ export class AuthService {
         };
 
         if (!this.env.JWT_SECRET) {
-            throw new AppError('Server configuration error: JWT_SECRET is missing', 500);
+            throw new AppError('missing_jwt_secret', 500);
         }
 
         return await generateSecureJWT(payload, this.env.JWT_SECRET);

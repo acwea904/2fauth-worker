@@ -1,9 +1,11 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { dataMigrationService } from '@/features/migration/service/dataMigrationService'
 import { downloadBlob } from '@/shared/utils/common'
+import { i18n } from '@/locales'
 
 export function useDataExport() {
+    const { t } = i18n.global
     const showPasswordDialog = ref(false)
     const showWarningDialog = ref(false)
     const showGaDialog = ref(false)
@@ -73,10 +75,10 @@ export function useDataExport() {
 
         if (type === 'encrypted') {
             if (exportForm.value.password !== exportForm.value.confirm) {
-                return ElMessage.error('两次输入的密码不一致！')
+                return ElMessage.error(t('migration.password_mismatch'))
             }
             if (exportForm.value.password.length < 12) {
-                return ElMessage.error('密码太弱！至少需要 12 个字符。')
+                return ElMessage.error(t('migration.password_weak'))
             }
             password = exportForm.value.password
         }
@@ -86,13 +88,13 @@ export function useDataExport() {
         showWarningDialog.value = false
 
         try {
-            loadingText.value = '正在获取账号数据...'
+            loadingText.value = t('migration.fetching_accounts')
             const vault = await dataMigrationService.fetchAllVault()
             if (!vault || vault.length === 0) {
-                throw new Error('没有可导出的账号')
+                throw new Error(t('migration.no_accounts_to_export'))
             }
 
-            loadingText.value = type === 'encrypted' ? '正在加密...' : '正在生成导出文件...'
+            loadingText.value = type === 'encrypted' ? t('migration.encrypting') : t('migration.generating_file')
 
             // 特殊处理 Google Auth (不再直接生成，而是进入选择界面)
             if (type === 'gauth') {
@@ -105,11 +107,10 @@ export function useDataExport() {
                 return
             }
 
-            // 特殊处理 HTML 报告导出
             if (type === 'html') {
                 const htmlContent = await dataMigrationService.exportAsHtml(vault)
                 downloadBlob(htmlContent, `2fauth-worker-export-html-${new Date().toISOString().split('T')[0]}.html`, 'text/html')
-                ElMessage.success('导出完成！请在浏览器中打开该文件。')
+                ElMessage.success(t('migration.export_success'))
                 isExporting.value = false
                 return
             }
@@ -148,10 +149,10 @@ export function useDataExport() {
             }
 
             downloadBlob(fileContent, filename, mimeType)
-            ElMessage.success('导出成功！')
+            ElMessage.success(t('migration.export_success'))
         } catch (error) {
             console.error('Export failed:', error)
-            ElMessage.error(error.message || '导出失败，请稍后重试')
+            ElMessage.error(error.message || t('migration.export_failed'))
         } finally {
             isExporting.value = false
         }
@@ -160,12 +161,12 @@ export function useDataExport() {
     // 执行生成所选的 Google Auth 二维码
     const executeGaExport = async () => {
         if (selectedAccountIds.value.length === 0) {
-            return ElMessage.warning('请至少选择一个账号')
+            return ElMessage.warning(t('migration.select_account'))
         }
 
         isExporting.value = true
         showAccountSelectDialog.value = false
-        loadingText.value = '正在生成二维码...'
+        loadingText.value = t('migration.generating_qr')
 
         try {
             const selectedVault = fullVault.value.filter(acc => selectedAccountIds.value.includes(acc.id))
@@ -175,7 +176,7 @@ export function useDataExport() {
             gaQrDataUrls.value = await dataMigrationService.exportAsGaMigration(selectedVault)
         } catch (error) {
             console.error('GA Export failed:', error)
-            ElMessage.error(error.message || '生成二维码失败')
+            ElMessage.error(error.message || t('common.error'))
         } finally {
             isExporting.value = false
         }

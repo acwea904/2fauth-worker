@@ -16,7 +16,7 @@ export class TelegramProvider extends BaseOAuthProvider {
     // 例如：https://t.me/MyAuthBot?start=state_value
     getAuthorizeUrl(state: string) {
         const botName = this.env.OAUTH_TELEGRAM_BOT_NAME;
-        if (!botName) throw new AppError('Telegram Bot Name not configured', 500);
+        if (!botName) throw new AppError('telegram_missing_bot_name', 500);
 
         // 注意：Telegram start 参数只允许 [A-Za-z0-9_-]，UUID 通常符合，但最好移除连字符以防万一
         // 这里我们直接使用 state，但在前端生成 state 时最好确保它是 URL 安全的
@@ -25,15 +25,15 @@ export class TelegramProvider extends BaseOAuthProvider {
 
     async handleCallback(params: string | URLSearchParams, _codeVerifier?: string): Promise<OAuthUserInfo> {
         if (typeof params === 'string') {
-            throw new AppError('Telegram provider requires full query parameters, not just code', 400);
+            throw new AppError('telegram_missing_query', 400);
         }
 
         const botToken = this.env.OAUTH_TELEGRAM_BOT_TOKEN;
-        if (!botToken) throw new AppError('Telegram Bot Token not configured', 500);
+        if (!botToken) throw new AppError('telegram_missing_bot_token', 500);
 
         // 1. 提取并验证必要字段
         const hash = params.get('hash');
-        if (!hash) throw new AppError('Missing hash signature', 400);
+        if (!hash) throw new AppError('telegram_missing_hash', 400);
 
         const dataCheckArr: string[] = [];
         const allowedKeys = ['auth_date', 'first_name', 'id', 'last_name', 'photo_url', 'username'];
@@ -69,14 +69,14 @@ export class TelegramProvider extends BaseOAuthProvider {
         );
 
         if (!isValid) {
-            throw new AppError('Telegram signature verification failed', 403);
+            throw new AppError('telegram_signature_failed', 403);
         }
 
         // 4. 检查时效性 (Telegram 建议检查 auth_date)
         const authDate = parseInt(params.get('auth_date') || '0');
         const now = Math.floor(Date.now() / 1000);
         if (now - authDate > 86400) { // 24小时过期
-            throw new AppError('Telegram login data expired', 401);
+            throw new AppError('telegram_login_expired', 401);
         }
 
         // 5. 返回用户信息

@@ -17,7 +17,7 @@ export class GiteeProvider extends BaseOAuthProvider {
         const redirectUri = this.env.OAUTH_GITEE_REDIRECT_URI;
 
         if (!clientId || !redirectUri) {
-            throw new AppError('Gitee OAuth configuration incomplete', 500);
+            throw new AppError('oauth_config_incomplete', 500);
         }
 
         const params = new URLSearchParams({
@@ -36,7 +36,7 @@ export class GiteeProvider extends BaseOAuthProvider {
         const code = typeof params === 'string' ? params : params.get('code');
 
         if (!code) {
-            throw new AppError('Gitee OAuth callback missing code', 400);
+            throw new AppError('oauth_code_missing', 400);
         }
 
         const clientId = this.env.OAUTH_GITEE_CLIENT_ID;
@@ -44,7 +44,7 @@ export class GiteeProvider extends BaseOAuthProvider {
         const redirectUri = this.env.OAUTH_GITEE_REDIRECT_URI;
 
         if (!clientId || !clientSecret || !redirectUri) {
-            throw new AppError('Gitee OAuth configuration incomplete', 500);
+            throw new AppError('oauth_config_incomplete', 500);
         }
 
         // 1. Exchange Code for Token
@@ -64,7 +64,7 @@ export class GiteeProvider extends BaseOAuthProvider {
         });
 
         if (!tokenResponse.ok) {
-            throw new AppError(`Gitee Token Exchange failed: ${tokenResponse.status}`, 502);
+            throw new AppError(`oauth_token_exchange_failed: Gitee  | ${tokenResponse.status}`, 502);
         }
 
         const tokenData: any = await tokenResponse.json();
@@ -72,7 +72,7 @@ export class GiteeProvider extends BaseOAuthProvider {
 
         // 2. Get User Info
         const userResponse = await fetch(`https://gitee.com/api/v5/user?access_token=${accessToken}`);
-        if (!userResponse.ok) throw new AppError(`Gitee API error: ${userResponse.status}`, 502);
+        if (!userResponse.ok) throw new AppError(`oauth_api_error: Gitee  | ${userResponse.status}`, 502);
         const userData: any = await userResponse.json();
 
         // 3. Get Email (if not in basic profile)

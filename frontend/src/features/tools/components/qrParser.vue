@@ -6,10 +6,10 @@
 
       <!-- Result Display -->
       <div v-if="scanResult" class="result-section" style="margin-top: 20px;">
-        <el-divider content-position="left">解析结果</el-divider>
+        <el-divider content-position="left">{{ $t('tools.qr_result') }}</el-divider>
         <el-input v-model="scanResult" type="textarea" :rows="3" readonly resize="none" />
         <el-button type="success" plain style="width: 100%; margin-top: 10px;" @click="copyResult">
-          <el-icon><CopyDocument /></el-icon> 复制内容
+          <el-icon><CopyDocument /></el-icon> {{ $t('common.copy') }}
         </el-button>
       </div>
 
@@ -21,19 +21,22 @@
 import { ref, defineAsyncComponent } from 'vue'
 import { ElMessage } from 'element-plus'
 import { CopyDocument } from '@element-plus/icons-vue'
+import { i18n } from '@/locales'
 
 // Import QrScanner component
 const QrScanner = defineAsyncComponent(() => import('@/shared/components/qrScanner.vue'))
 
 const scanResult = ref('')
 
+const { t } = i18n.global
+
 const handleScanSuccess = (result) => {
   scanResult.value = result
-  ElMessage.success('二维码解析成功')
+  ElMessage.success(t('tools.qr_parsed'))
 }
 
 const copyResult = async () => {
   if (!scanResult.value) return
-  try { await navigator.clipboard.writeText(scanResult.value); ElMessage.success('内容已复制') } catch (e) {}
+  try { await navigator.clipboard.writeText(scanResult.value); ElMessage.success(t('tools.password_copied')) } catch (e) {}
 }
 </script>

@@ -31,7 +31,7 @@ export class GitHubProvider extends BaseOAuthProvider {
         const code = typeof params === 'string' ? params : params.get('code');
 
         if (!code) {
-            throw new AppError('GitHub OAuth callback missing code', 400);
+            throw new AppError('oauth_code_missing', 400);
         }
 
         // 1. 使用 Code 换取 Access Token
@@ -51,13 +51,13 @@ export class GitHubProvider extends BaseOAuthProvider {
         });
 
         if (!tokenResponse.ok) {
-            throw new AppError(`GitHub Token Exchange failed: ${tokenResponse.status}`, 502);
+            throw new AppError(`oauth_token_exchange_failed: GitHub  | ${tokenResponse.status}`, 502);
         }
 
         const tokenData: any = await tokenResponse.json();
 
         if (tokenData.error) {
-            throw new AppError(`GitHub OAuth Error: ${tokenData.error_description || tokenData.error}`, 400);
+            throw new AppError(`oauth_token_exchange_failed: GitHub | ${tokenData.error_description || tokenData.error}`, 400);
         }
 
         const accessToken = tokenData.access_token;
@@ -71,7 +71,7 @@ export class GitHubProvider extends BaseOAuthProvider {
             }
         });
 
-        if (!userResponse.ok) throw new AppError(`GitHub API error: ${userResponse.status}`, 502);
+        if (!userResponse.ok) throw new AppError(`oauth_api_error: GitHub  | ${userResponse.status}`, 502);
         const userData: any = await userResponse.json();
 
         // 3. 补充获取 Email (如果公开资料中没有)

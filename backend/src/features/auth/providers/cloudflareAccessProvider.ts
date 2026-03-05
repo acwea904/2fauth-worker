@@ -43,7 +43,7 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
     private getBaseUrl(): string {
         const orgDomain = this.env.OAUTH_CLOUDFLARE_ORG_DOMAIN;
         if (!orgDomain) {
-            throw new AppError('Cloudflare Access configuration incomplete: Missing OAUTH_CLOUDFLARE_ORG_DOMAIN', 500);
+            throw new AppError('Cloudflare Access 配置不完整：缺少 OAUTH_CLOUDFLARE_ORG_DOMAIN', 500);
         }
 
         let baseUrl = orgDomain.replace(/\/$/, '');
@@ -58,7 +58,7 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
         const redirectUri = this.env.OAUTH_CLOUDFLARE_REDIRECT_URI;
 
         if (!clientId || !redirectUri) {
-            throw new AppError('Cloudflare Access configuration incomplete', 500);
+            throw new AppError('Cloudflare Access 配置不完整', 500);
         }
 
         const baseUrl = this.getBaseUrl();
@@ -83,7 +83,7 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
         const code = typeof params === 'string' ? params : params.get('code');
 
         if (!code) {
-            throw new AppError('Cloudflare Access OAuth callback missing code', 400);
+            throw new AppError('oauth_code_missing', 400);
         }
 
         const clientId = this.env.OAUTH_CLOUDFLARE_CLIENT_ID;
@@ -91,7 +91,7 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
         const redirectUri = this.env.OAUTH_CLOUDFLARE_REDIRECT_URI;
 
         if (!clientId || !clientSecret || !redirectUri) {
-            throw new AppError('Cloudflare Access configuration incomplete', 500);
+            throw new AppError('Cloudflare Access 配置不完整', 500);
         }
 
         const baseUrl = this.getBaseUrl();
@@ -116,7 +116,7 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
             // 增加更详细的错误日志，方便调试
             const errorText = await tokenResponse.text();
             console.error(`Cloudflare Access Token Error: ${tokenResponse.status} - ${errorText}`);
-            throw new AppError(`Cloudflare Access Token Exchange failed: ${tokenResponse.status}`, 502);
+            throw new AppError(`oauth_token_exchange_failed: Cloudflare Access  | ${tokenResponse.status}`, 502);
         }
 
         const tokenData: any = await tokenResponse.json();
@@ -128,7 +128,7 @@ export class CloudflareAccessProvider extends BaseOAuthProvider {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
 
-        if (!userResponse.ok) throw new AppError(`Cloudflare Access API error: ${userResponse.status}`, 502);
+        if (!userResponse.ok) throw new AppError(`oauth_api_error: Cloudflare Access  | ${userResponse.status}`, 502);
         const userData: any = await userResponse.json();
 
         return {

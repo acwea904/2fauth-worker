@@ -4,6 +4,7 @@ import QRCode from 'qrcode'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { vaultService } from '@/features/vault/service/vaultService'
 import { copyToClipboard } from '@/shared/utils/common'
+import { i18n } from '@/locales'
 
 /**
  * 管理账号的增删改查与二维码展示等弹窗行为
@@ -13,6 +14,7 @@ import { copyToClipboard } from '@/shared/utils/common'
  */
 export function useVaultActions(fetchVault, vault) {
     const vaultStore = useVaultStore()
+    const { t } = i18n.global
 
     // --- 批量操作 ---
     const selectedIds = ref([])
@@ -34,13 +36,13 @@ export function useVaultActions(fetchVault, vault) {
         if (!selectedIds.value.length) return
         try {
             await ElMessageBox.confirm(
-                `确定要删除选中的 ${selectedIds.value.length} 个账号吗？此操作不可恢复。`,
-                '批量删除',
-                { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' }
+                t('vault.delete_batch_confirm', { count: selectedIds.value.length }),
+                t('common.delete'),
+                { type: 'warning', confirmButtonText: t('common.delete'), cancelButtonText: t('common.cancel') }
             )
             isBulkDeleting.value = true
             await vaultService.batchDelete(selectedIds.value)
-            ElMessage.success(`已成功删除 ${selectedIds.value.length} 个账号`)
+            ElMessage.success(t('vault.delete_batch_success', { count: selectedIds.value.length }))
             selectedIds.value = []
             vaultStore.markDirty()
             fetchVault()
@@ -70,9 +72,9 @@ export function useVaultActions(fetchVault, vault) {
     // --- 复制 TOTP 代码 ---
     const copyCode = async (vaultItem) => {
         if (!vaultItem.currentCode || vaultItem.currentCode === '------') {
-            return ElMessage.warning('验证码尚未生成，请稍候')
+            return ElMessage.warning(t('vault.not_generated_yet'))
         }
-        await copyToClipboard(vaultItem.currentCode, '验证码已复制')
+        await copyToClipboard(vaultItem.currentCode, t('vault.copy_success'))
     }
 
     // --- 编辑账号 ---
@@ -92,7 +94,7 @@ export function useVaultActions(fetchVault, vault) {
             const { id, ...updateData } = editVaultData.value
             const res = await vaultService.updateAccount(id, updateData)
             if (res.success) {
-                ElMessage.success('账号信息已更新')
+                ElMessage.success(t('vault.update_success'))
                 showEditDialog.value = false
                 vaultStore.markDirty()
                 fetchVault()
@@ -107,13 +109,13 @@ export function useVaultActions(fetchVault, vault) {
     // --- 删除单个账号 ---
     const deleteVault = async (vaultItem) => {
         try {
-            await ElMessageBox.confirm(`确定要删除 ${vaultItem.service} 吗？`, '删除确认', {
+            await ElMessageBox.confirm(t('vault.delete_confirm', { service: vaultItem.service }), t('common.delete'), {
                 type: 'warning',
-                confirmButtonText: '确认删除',
-                cancelButtonText: '取消'
+                confirmButtonText: t('common.delete'),
+                cancelButtonText: t('common.cancel')
             })
             await vaultService.deleteAccount(vaultItem.id)
-            ElMessage.success('账号已删除')
+            ElMessage.success(t('vault.delete_success'))
             vaultStore.markDirty()
             fetchVault()
         } catch (e) {
@@ -136,7 +138,7 @@ export function useVaultActions(fetchVault, vault) {
     const copySecret = () => {
         if (currentQrItem.value) {
             copyToClipboard(currentQrItem.value.secret)
-            ElMessage.success('密钥已复制到剪贴板')
+            ElMessage.success(t('vault.copy_success'))
         }
     }
 
@@ -146,7 +148,7 @@ export function useVaultActions(fetchVault, vault) {
             const algorithm = (item.algorithm || 'SHA1').replace(/-/g, '').toUpperCase()
             const uri = `otpauth://totp/${encodeURIComponent(item.service)}:${encodeURIComponent(item.account)}?secret=${encodeURIComponent(item.secret)}&issuer=${encodeURIComponent(item.service)}&algorithm=${algorithm}&digits=${item.digits || 6}&period=${item.period || 30}`
             copyToClipboard(uri)
-            ElMessage.success('OTP URI 已复制')
+            ElMessage.success(t('vault.copy_success'))
         }
     }
 

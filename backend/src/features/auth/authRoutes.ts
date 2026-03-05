@@ -62,7 +62,7 @@ auth.post('/callback/:provider', async (c) => {
     const clientState = body.state; // 前端传回的回调 state 参数
 
     if (!serverState || !clientState || serverState !== clientState) {
-        throw new AppError('Invalid or missing OAuth state. Security validation failed.', 403);
+        throw new AppError('oauth_state_invalid', 403);
     }
 
     // 校验通过，清理一次性 State Cookie

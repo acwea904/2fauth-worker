@@ -14,7 +14,7 @@ export class VaultService {
         this.repository = repository;
 
         if (!env.ENCRYPTION_KEY) {
-            throw new AppError('FATAL ERROR: ENCRYPTION_KEY is not configured.', 500);
+            throw new AppError('missing_encryption_key', 500);
         }
 
         this.encryptionKey = env.ENCRYPTION_KEY;
@@ -55,14 +55,14 @@ export class VaultService {
      */
     // normalize a service+account pair for comparison
     private normalizeSignature(service: string, account: string) {
-        return `${(service || '').toString().trim().toLowerCase()}:${(account||'').toString().trim().toLowerCase()}`;
+        return `${(service || '').toString().trim().toLowerCase()}:${(account || '').toString().trim().toLowerCase()}`;
     }
 
     async createAccount(userId: string, data: any) {
         let { service, account, category, secret, digits, period, algorithm } = data;
 
         if (!service || !account || !secret || !validateBase32Secret(secret)) {
-            throw new AppError('Invalid account data or secret format', 400);
+            throw new AppError('invalid_secret_format', 400);
         }
 
         // 入库清洗：去掉 account 中可能带有的 Issuer: 前缀
@@ -73,7 +73,7 @@ export class VaultService {
         // duplicate check (case‑insensitive & trimmed) using repository helper
         const existing = await this.repository.findByServiceAccount(service, account);
         if (existing) {
-            throw new AppError('Account already exists', 409);
+            throw new AppError('account_exists', 409);
         }
 
         const normalizedSecret = secret.replace(/\s/g, '').toUpperCase();
@@ -100,7 +100,7 @@ export class VaultService {
         let { service, account, category, secret, digits, period, algorithm } = data;
 
         if (!service || !account) {
-            throw new AppError('Service and account are required', 400);
+            throw new AppError('missing_service_account', 400);
         }
 
         // 入库清洗：去掉 account 中可能带有的 Issuer: 前缀
@@ -112,14 +112,14 @@ export class VaultService {
         let encryptedSecret: string;
         if (secret) {
             if (!validateBase32Secret(secret)) {
-                throw new AppError('Invalid secret format (must be Base32, min 16 chars)', 400);
+                throw new AppError('invalid_secret_format', 400);
             }
             const normalizedSecret = secret.replace(/\s/g, '').toUpperCase();
             encryptedSecret = await encryptField(normalizedSecret, this.encryptionKey);
         } else {
             // 取出现有记录，复用已有加密值
             const existing = await this.repository.findById(id);
-            if (!existing) throw new AppError('Account not found', 404);
+            if (!existing) throw new AppError('account_not_found', 404);
             encryptedSecret = existing.secret;
         }
 
@@ -133,7 +133,7 @@ export class VaultService {
             ...(period && { period }),
         });
 
-        if (!updated) throw new AppError('Account not found', 404);
+        if (!updated) throw new AppError('account_not_found', 404);
         return updated;
     }
 
@@ -142,11 +142,11 @@ export class VaultService {
      */
     async deleteAccount(id: string) {
         const success = await this.repository.delete(id);
-        if (!success) throw new AppError('Account not found', 404);
+        if (!success) throw new AppError('account_not_found', 404);
     }
 
     async batchDeleteAccounts(ids: string[]) {
-        if (!ids || ids.length === 0) throw new AppError('No IDs provided', 400);
+        if (!ids || ids.length === 0) throw new AppError('no_account_ids', 400);
         const count = await this.repository.batchDelete(ids);
         return { count };
     }
@@ -157,12 +157,12 @@ export class VaultService {
     async exportAccounts(type: string, password?: string) {
         const SECURITY_CONFIG = { MIN_EXPORT_PASSWORD_LENGTH: 5 };
         if (!['encrypted', 'json', '2fas', 'text'].includes(type)) {
-            throw new AppError('Invalid export type', 400);
+            throw new AppError('export_type_invalid', 400);
         }
 
         if (type === 'encrypted') {
             if (!password || password.length < SECURITY_CONFIG.MIN_EXPORT_PASSWORD_LENGTH) {
-                throw new AppError(`导出密码至少需要 ${SECURITY_CONFIG.MIN_EXPORT_PASSWORD_LENGTH} 个字符`, 400);
+                throw new AppError('export_password_length', 400);
             }
         }
 
@@ -208,20 +208,20 @@ export class VaultService {
             return { data: lines.join('\n'), isText: true };
         }
 
-        throw new AppError('Unhandled export type', 500);
+        throw new AppError('export_type_invalid', 500);
     }
 
     /**
      * 处理导入
      */
     async importAccounts(userId: string, type: string, content: string, password?: string) {
-        if (!content || !type) throw new AppError('内容和类型不能为空', 400);
+        if (!content || !type) throw new AppError('missing_content_type', 400);
 
         let validAccounts: any[] = [];
 
         try {
             if (type === 'encrypted') {
-                if (!password) throw new AppError('加密导入需要密码', 400);
+                if (!password) throw new AppError('import_password_required', 400);
                 const encryptedFile = JSON.parse(content);
                 const decryptedData = await decryptData(encryptedFile.data, password);
                 validAccounts = decryptedData.accounts || [];
@@ -305,7 +305,7 @@ export class VaultService {
                 }
             }
         } catch (e) {
-            throw new AppError('解析失败，请检查文件格式或密码是否正确', 400);
+            throw new AppError('parse_failed', 400);
         }
 
         if (type === 'raw') validAccounts = JSON.parse(content);

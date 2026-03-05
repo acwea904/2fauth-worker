@@ -1,5 +1,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { toolService } from '@/features/tools/service/toolService'
+import { i18n } from '@/locales'
 
 /**
  * 时间校准逻辑提取
@@ -18,9 +19,10 @@ export function useTimeSync() {
     const syncStatus = computed(() => {
         if (offset.value === null) return null
         const abs = Math.abs(offset.value)
-        if (abs < 2000) return { title: '时间同步正常', type: 'success', desc: '本地时间与服务器误差极小，不影响 2FA 验证。' }
-        if (abs < 30000) return { title: '存在微小偏差', type: 'warning', desc: '建议校准本地时间，但通常仍可使用。' }
-        return { title: '时间偏差过大', type: 'error', desc: '严重偏差！2FA 验证码将失效，请务必校准设备时间。' }
+        const { t } = i18n.global
+        if (abs < 2000) return { title: t('tools.sync_normal'), type: 'success', desc: t('tools.sync_normal_desc') }
+        if (abs < 30000) return { title: t('tools.sync_warning'), type: 'warning', desc: t('tools.sync_warning_desc') }
+        return { title: t('tools.sync_error'), type: 'error', desc: t('tools.sync_error_desc') }
     })
 
     const syncTime = async () => {

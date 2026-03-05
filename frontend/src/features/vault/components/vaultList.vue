@@ -5,7 +5,7 @@
         <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
           <el-input 
             v-model="searchQuery" 
-            placeholder="搜索服务名称、账号或分类..." 
+            :placeholder="$t('common.search_placeholder')" 
             clearable 
             style="max-width: 400px;" 
           >
@@ -18,13 +18,13 @@
         
         <div class="batch-actions" style="display: flex; align-items: center; gap: 10px;">
           <template v-if="selectedIds.length > 0">
-            <span class="batch-text">已选 {{ selectedIds.length }} 项</span>
+            <span class="batch-text">{{ $t('common.selected_items', { count: selectedIds.length }) }}</span>
             <el-button type="danger" plain @click="handleBulkDelete" :loading="isBulkDeleting">
-              <el-icon><Delete /></el-icon> 删除
+              <el-icon><Delete /></el-icon> {{ $t('common.delete') }}
             </el-button>
-            <el-button @click="selectedIds = []" plain>取消</el-button>
+            <el-button @click="selectedIds = []" plain>{{ $t('common.cancel') }}</el-button>
           </template>
-          <el-button v-else @click="selectAllLoaded" plain>全选已加载</el-button>
+          <el-button v-else @click="selectAllLoaded" plain>{{ $t('common.select_all_loaded') }}</el-button>
         </div>
       </div>
 
@@ -32,13 +32,13 @@
       <div v-if="(isInitializing || isLoading || isFetching) && vault.length === 0" class="loading-state" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 400px; color: var(--el-text-color-secondary);">
 
         <el-icon class="is-loading" :size="48" style="margin-bottom: 20px; color: var(--el-color-primary);"><Loading /></el-icon>
-        <p style="font-size: 16px; letter-spacing: 1px;">数据获取中, 请稍候...</p>
+        <p style="font-size: 16px; letter-spacing: 1px;">{{ $t('common.loading_data') }}</p>
       </div>
 
       <!-- 2. 空状态 (明确加载完毕 + 数据真正为空 + 无搜索) -->
       <div v-else-if="!isLoading && !isFetching && vault.length === 0 && !searchQuery" class="empty-state">
-        <el-empty description="空空如也，快去添加你的第一个 2FA 账号吧！">
-          <el-button type="primary" @click="$emit('switch-tab', 'add-vault-scan')">去添加账号</el-button>
+        <el-empty :description="$t('common.empty_vault')">
+          <el-button type="primary" @click="$emit('switch-tab', 'add-vault-scan')">{{ $t('common.go_add_vault') }}</el-button>
         </el-empty>
       </div>
 
@@ -65,13 +65,13 @@
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item command="qr">
-                      <el-icon><Picture /></el-icon> 账号导出
+                      <el-icon><Picture /></el-icon> {{ $t('common.export_account') }}
                     </el-dropdown-item>
                     <el-dropdown-item command="edit">
-                      <el-icon><Edit /></el-icon> 编辑账号
+                      <el-icon><Edit /></el-icon> {{ $t('common.edit') }}
                     </el-dropdown-item>
                     <el-dropdown-item command="delete" style="color: #F56C6C;">
-                      <el-icon><Delete /></el-icon> 删除账号
+                      <el-icon><Delete /></el-icon> {{ $t('common.delete') }}
                     </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
@@ -106,39 +106,39 @@
         </el-row>
 
         <div v-if="isFetchingNextPage" style="text-align: center; padding: 20px; color: var(--el-text-color-secondary);">
-          <el-icon class="is-loading"><Loading /></el-icon> 正在加载更多...
+          <el-icon class="is-loading"><Loading /></el-icon> {{ $t('common.loading_more') }}
         </div>
         <div v-if="!hasNextPage && vault.length > 0" style="text-align: center; padding: 20px; color: var(--el-text-color-secondary); font-size: 12px;">
-          - 到底了，没有更多账号了 -
+          {{ $t('common.no_more_accounts') }}
         </div>
 
-        <el-empty v-if="!isLoading && vault.length === 0 && searchQuery" description="没有找到匹配的账号" />
+        <el-empty v-if="!isLoading && vault.length === 0 && searchQuery" :description="$t('common.no_matching_accounts')" />
       </div>
     </div>
 
     <!-- 编辑弹窗 -->
-    <el-dialog v-model="showEditDialog" title="✏️ 编辑账号" :width="layoutStore.isMobile ? '90%' : '400px'" destroy-on-close>
+    <el-dialog v-model="showEditDialog" :title="$t('common.edit_account')" :width="layoutStore.isMobile ? '90%' : '400px'" destroy-on-close>
       <el-form :model="editVaultData" label-position="top">
-        <el-form-item label="服务名称 (如 Google, GitHub)">
+        <el-form-item :label="$t('common.service_name')">
           <el-input v-model="editVaultData.service" />
         </el-form-item>
-        <el-form-item label="账号标识 (如 邮箱地址)">
+        <el-form-item :label="$t('common.account_identifier')">
           <el-input v-model="editVaultData.account" />
         </el-form-item>
-        <el-form-item label="分类 (可选)">
+        <el-form-item :label="$t('common.category_optional')">
           <el-input v-model="editVaultData.category" />
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showEditDialog = false">取消</el-button>
-          <el-button type="primary" :loading="isEditing" @click="submitEditVault">保存修改</el-button>
+          <el-button @click="showEditDialog = false">{{ $t('common.cancel') }}</el-button>
+          <el-button type="primary" :loading="isEditing" @click="submitEditVault">{{ $t('common.save') }}</el-button>
         </span>
       </template>
     </el-dialog>
 
     <!-- 账号导出弹窗 -->
-    <el-dialog v-model="showQrDialog" title="账号导出" :width="layoutStore.isMobile ? '90%' : '350px'" center align-center destroy-on-close @closed="showSecret = false">
+    <el-dialog v-model="showQrDialog" :title="$t('common.export_account')" :width="layoutStore.isMobile ? '90%' : '350px'" center align-center destroy-on-close @closed="showSecret = false">
       <div class="qr-container" v-if="currentQrItem">
         <div class="qr-info">
           <h3 class="qr-service">{{ currentQrItem.service }}</h3>
@@ -149,20 +149,20 @@
           <img :src="qrCodeUrl" class="qr-code-img" />
         </div>
         
-        <p class="qr-tip">使用任意 2FA 应用扫描二维码即可添加此账户</p>
+        <p class="qr-tip">{{ $t('vault.export_qr_tip') }}</p>
         
         <div class="secret-section">
           <div class="secret-box">
             <div class="secret-text">{{ showSecret ? formatSecret(currentQrItem.secret) : '•••• •••• •••• ••••' }}</div>
             <div class="secret-actions">
-              <el-icon class="action-icon" @click="showSecret = !showSecret" :title="showSecret ? '隐藏' : '显示'"><View v-if="!showSecret" /><Hide v-else /></el-icon>
-              <el-icon class="action-icon" @click="copySecret" title="复制密钥"><CopyDocument /></el-icon>
+              <el-icon class="action-icon" @click="showSecret = !showSecret" :title="showSecret ? $t('vault.hide_secret') : $t('vault.show_secret')"><View v-if="!showSecret" /><Hide v-else /></el-icon>
+              <el-icon class="action-icon" @click="copySecret" :title="$t('vault.copy_secret')"><CopyDocument /></el-icon>
             </div>
           </div>
         </div>
 
         <div class="uri-link-wrapper">
-          <el-button link type="info" size="small" @click="copyOtpUrl">复制原始 otpauth 链接</el-button>
+          <el-button link type="info" size="small" @click="copyOtpUrl">{{ $t('vault.copy_otp_url') }}</el-button>
         </div>
       </div>
     </el-dialog>

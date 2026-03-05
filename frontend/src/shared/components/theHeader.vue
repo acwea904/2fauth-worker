@@ -25,7 +25,6 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Lock } from '@element-plus/icons-vue'
 import { useLayoutStore } from '@/shared/stores/layoutStore'
@@ -43,4 +42,4 @@ const goHome = () => {
     router.push('/')
   }
 }
-</script>
+</script>\n

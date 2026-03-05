@@ -4,7 +4,7 @@
       <div class="logo-container">
         <el-icon :size="54" color="#409EFC"><Lock /></el-icon>
         <h2>2FAuth Worker</h2>
-        <p class="subtitle">A Secure 2FA Management Tool</p>
+        <p class="subtitle">{{ $t('auth.subtitle') }}</p>
       </div>
 
       <div class="action-container">
@@ -23,16 +23,16 @@
                 <component :is="iconComponents[provider.icon] || Platform" />
               </el-icon>
             </template>
-            通过 {{ provider.name }} 授权登录
+            {{ $t('auth.login_with', { provider: provider.name }) }}
           </el-button>
         </template>
       </div>
 
       <div class="footer-tips">
         <el-alert
-          title="安全隐私提示"
+          :title="$t('auth.privacy_title')"
           type="info"
-          description="系统基于 OAuth 2.0 协议验证身份，绝不会获取、记录或传输您的密码信息。"
+          :description="$t('auth.privacy_desc')"
           show-icon
           :closable="false"
         />

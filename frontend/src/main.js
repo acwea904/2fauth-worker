@@ -11,11 +11,13 @@ import router from '@/app/router'
 import { useThemeStore } from '@/shared/stores/themeStore'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
+import { i18n } from '@/locales'
 
 const app = createApp(App)
 const pinia = createPinia()
 
 app.use(pinia)
+app.use(i18n)
 
 // 初始化主题状态
 const themeStore = useThemeStore()
@@ -26,17 +28,17 @@ registerSW({
   onOfflineReady() {
     import('element-plus').then(({ ElNotification }) => {
       ElNotification({
-        title: '更新可用',
+        title: i18n.global.t('common.update_available'),
         message: `
           <div style="line-height: 1.5; font-size: 14px; margin-bottom: 5px;">
-            🎉 Cloudflare Worker 新部署已就绪！
+            🎉 ${i18n.global.t('common.pwa_update_ready')}
           </div>
           <div>
             <button 
               style="background: var(--el-color-primary); color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;"
               onclick="window.location.reload()"
             >
-              立即刷新
+              ${i18n.global.t('common.refresh_now')}
             </button>
           </div>
         `,
