@@ -546,16 +546,18 @@
             }
         },
         "suggestions": {
-            "encryption_key_suggestion": "请复制下方为您预生成的高强度随机密钥。请立刻前往 Fork的Github仓库 -> Settings -> Secrets and variables -> Actions -> 将其填入 ENCRYPTION_KEY",
-            "jwt_secret_suggestion": "请复制下方为您预生成的高强度随机密钥。请立刻前往 Fork的Github仓库 -> Settings -> Secrets and variables -> Actions -> 将其填入 JWT_SECRET",
-            "oauth_allow_all_suggestion": "请立刻前往 Fork的Github仓库 -> Settings -> Secrets and variables -> Actions，将环境变量 OAUTH_ALLOW_ALL 删除，或将其值修改为 false。",
-            "allowed_users_suggestion": "请在 Fork的Github仓库 -> Settings -> Secrets and variables -> Actions中添加 OAUTH_ALLOWED_USERS，并填入您在 GitHub(或其它平台)上对应的注册邮箱地址（多个以英文逗号分隔）。",
-            "github_config_suggestion": "请核对获取的 GitHub OAuth Apps 密钥信息，然后前往 Fork的Github仓库 -> Settings -> Secrets and variables -> Actions，将环境变量 OAUTH_GITHUB_CLIENT_ID、OAUTH_GITHUB_CLIENT_SECRET、OAUTH_GITHUB_REDIRECT_URI 填入",
-            "telegram_config_suggestion": "请在 BotFather 检查机器人配置，确保信息填全，然后前往 Fork的Github仓库 -> Settings -> Secrets and variables -> Actions，将环境变量 OAUTH_TELEGRAM_BOT_NAME、OAUTH_TELEGRAM_BOT_TOKEN、OAUTH_TELEGRAM_REDIRECT_URI 填入",
-            "google_config_suggestion": "请前往 Google Cloud Console 检查凭据配置，然后前往 Fork的Github仓库 -> Settings -> Secrets and variables -> Actions，将环境变量 OAUTH_GOOGLE_CLIENT_ID、OAUTH_GOOGLE_CLIENT_SECRET、OAUTH_GOOGLE_REDIRECT_URI 填入",
-            "nodeloc_config_suggestion": "请前往 NodeLoc 面板检查您的开发者凭据，然后前往 Fork的Github仓库 -> Settings -> Secrets and variables -> Actions，将环境变量 OAUTH_NODELOC_CLIENT_ID、OAUTH_NODELOC_CLIENT_SECRET、OAUTH_NODELOC_REDIRECT_URI 填入",
-            "gitee_config_suggestion": "请核对 Gitee 开发者凭据，然后前往 Fork的Github仓库 -> Settings -> Secrets and variables -> Actions，将环境变量 OAUTH_GITEE_CLIENT_ID、OAUTH_GITEE_CLIENT_SECRET、OAUTH_GITEE_REDIRECT_URI 填入",
-            "cloudflare_config_suggestion": "需要四位一体的参数：Client ID, Secret, Org Domain, Redirect URI，然后前往 Cloudflare 后台 -> Workers 和 Pages -> 2fauth-worker -> 设置 -> 变量和机密，将环境变量 OAUTH_CLOUDFLARE_CLIENT_ID、OAUTH_CLOUDFLARE_CLIENT_SECRET、OAUTH_CLOUDFLARE_REDIRECT_URI 填入",
+            "suggestion_deploy_by_worker": "Worker 一键部署: 前往 Cloudflare 后台 -> Workers 和 Pages -> 2fauth-worker -> 设置 -> 变量和机密",
+            "suggestion_deploy_by_gitaction": "Github Action部署: 前往 Fork 仓库 -> Settings -> Secrets and variables -> Actions",
+            "encryption_key_suggestion": "请复制下方为您预生成的高强度随机密钥，根据不同部署方式填入，将其填入 ENCRYPTION_KEY 。",
+            "jwt_secret_suggestion": "请复制下方为您预生成的高强度随机密钥，根据不同部署方式填入，将其填入 JWT_SECRET 。",
+            "oauth_allow_all_suggestion": "根据不同部署方式，将 OAUTH_ALLOW_ALL 删除将其值修改为 false。",
+            "allowed_users_suggestion": "根据不同部署方式，填入 OAUTH_ALLOWED_USERS ",
+            "github_config_suggestion": "根据不同部署方式，填入 OAUTH_GITHUB_CLIENT_ID、OAUTH_GITHUB_CLIENT_SECRET、OAUTH_GITHUB_REDIRECT_URI ",
+            "telegram_config_suggestion": "请在 BotFather 检查机器人配置，确保信息填全，根据不同部署方式，填入 OAUTH_TELEGRAM_BOT_NAME、OAUTH_TELEGRAM_BOT_TOKEN、OAUTH_TELEGRAM_REDIRECT_URI",
+            "google_config_suggestion": "请前往 Google Cloud Console 检查凭据配置，根据不同部署方式，填入 OAUTH_GOOGLE_CLIENT_ID、OAUTH_GOOGLE_CLIENT_SECRET、OAUTH_GOOGLE_REDIRECT_URI",
+            "nodeloc_config_suggestion": "请前往 NodeLoc 面板检查您的开发者凭据，根据不同部署方式，填入 OAUTH_NODELOC_CLIENT_ID、OAUTH_NODELOC_CLIENT_SECRET、OAUTH_NODELOC_REDIRECT_URI 填入",
+            "gitee_config_suggestion": "请核对 Gitee 开发者凭据，，根据不同部署方式，填入 OAUTH_GITEE_CLIENT_ID、OAUTH_GITEE_CLIENT_SECRET、OAUTH_GITEE_REDIRECT_URI 填入",
+            "cloudflare_config_suggestion": "需要四位一体的参数：Client ID, Secret, Org Domain, Redirect URI，根据不同部署方式，填入  OAUTH_CLOUDFLARE_CLIENT_ID、OAUTH_CLOUDFLARE_CLIENT_SECRET、OAUTH_CLOUDFLARE_REDIRECT_URI 填入",
             "no_provider_suggestion": "阅读2Fauth Worker 的 README，挑选最适合您且配置最简单的一种登录方式，按照其说明获取 Client ID 与 Secret 并在云端配置。"
         }
     }

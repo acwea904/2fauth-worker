@@ -5,11 +5,13 @@ logs
 .secrets
 .actrc
 .event
+.dev.vars
 .vscode/*
 .devcontainer/*
 .test/*
+.wrangler/*
+package-lock.json
 
-backend/.dev.vars
 backend/.wrangler
 backend/README.md
 backend/node_modules

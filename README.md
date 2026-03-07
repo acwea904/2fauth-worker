@@ -53,109 +53,139 @@
 
 ## 🚀 详细部署指南
 
-本项目设计为通过 **GitHub Actions** 自动化一键部署到你的 Cloudflare 账号下。只需几分钟即可获得你专属的 2FA 管理器。
+本项目支持 2 种部署方式：**一键部署到 Cloudflare Workers** 和 **通过 GitHub Actions 部署**。请根据你的需要选择其中一种即可。
 
-### 第一步：准备工作
+---
+
+### 方式一：一键部署到 Cloudflare Workers（推荐，新手友好）
+
+这是最简便的部署方式，只需点击下方按钮，按照页面向导提示操作即可快速上线。
+
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/nap0o/2fauth-worker)
+
+**部署说明：**
+
+1. 在部署之前，建议你先准备好你打算使用的**第三方登录（OAuth）配置**，例如 GitHub 的 Client ID / Secret（详见下文：[获取第三方登录密钥](#2-配置第三方登录)）。
+2. Fork 本仓库
+2. 点击上方的 **Deploy to Cloudflare Workers** 按钮进入 Cloudflare 部署向导。
+3. 根据向导提示，授权 Cloudflare 读取该仓库（系统会自动在你的 GitHub 账号下创建一个该项目的私有克隆）。
+
+**授权 Cloudflare 读取 Github 仓库 步骤：**
+
+<img height="400" alt="0001" src="https://github.com/user-attachments/assets/cb64bc2f-6dcc-40cb-a781-3bc2c7bc5b28" />
+<img  height="500" alt="0002" src="https://github.com/user-attachments/assets/3f186ea6-80f5-4d78-b90f-724af33a73ae" />
+<img  height="500" alt="0003" src="https://github.com/user-attachments/assets/c1f2d5ee-2f3f-47c2-969f-00308cadff21" />
+
+4. 点击`创建和部署`，完成部署！
+5. 访问专属的 `xxx.workers.dev` 域名，按照页面提示完成初始化配置。
+
+---
+
+### 方式二：通过 GitHub Actions 自动化部署（适合高级用户）
+
+如果你需要更深入定制或打算持续集成，可以选择原生的 GitHub Actions 自动部署流程。
+
+#### 1. 准备工作
 1. 注册一个 [Cloudflare](https://dash.cloudflare.com/) 账号。
 2. **Fork** 本仓库到你的 GitHub 账户。
 
-### 第二步：获取 Cloudflare Worker部署令牌
+#### 2. 获取 Cloudflare Worker部署令牌
 1. 登录 Cloudflare Dashboard
-2. [前往获取](https://dash.cloudflare.com/profile/api-tokens) 
+2. [前往获取](https://dash.cloudflare.com/profile/api-tokens)  https://dash.cloudflare.com/profile/api-tokens
 3. 点击“创建令牌” 
 4. 选择使用模版 “编辑 Cloudflare Workers”  
-5. 配置”帐户资源“和”区域资源“
-6. 依次点击”继续以显示摘要“，点击”创建令牌“
+5. 配置“帐户资源”和“区域资源”
+6. 依次点击“继续以显示摘要”，点击“创建令牌”
 7. 复制生成的令牌
 
 <img width="500"  alt="image" src="https://github.com/user-attachments/assets/6487aa6e-e505-4980-aef4-e08172116746" /><br />
 
 <img width="800"  alt="image" src="https://github.com/user-attachments/assets/d4c737f7-2d9f-4cfb-a712-b1af416c8ef6" />
 
-### 第三步：配置 Cloudflare D1 数据库
+#### 3. 配置 Cloudflare D1 数据库
 1. 登录 Cloudflare Dashboard。
 2. 依次点击左侧菜单的 **存储和数据库** -> **D1 SQL 数据库**。
 3. 点击 **创建数据库**，命名为 `2fauth-db` (或自定义名称)。
 4. 创建成功后，复制数据库详情页提供的 **`Database ID`**，备用。
 
-### 第四步：配置第三方登录
-*注：系统支持 6 种登录方式，你**至少需要配置一种***。推荐使用 `GitHub登录` 
+#### 4. 配置 GitHub Actions Secrets
+前往你 Fork 仓库的 **Settings** -> **Secrets and variables** -> **Actions** -> **New repository secret**，添加下列关键参数：
 
-#### 使用 GitHub 登录
-1. 访问 GitHub `Settings` -> `Developer Settings` -> `OAuth Apps` -> **New OAuth App**。
+- **基础平台令牌必填：**
+  - `CLOUDFLARE_ACCOUNT_ID`：你的 CF 账户 ID (CF 面板的概述页右下角可以找到)
+  - `CLOUDFLARE_API_TOKEN`：刚刚在“步骤 2”获取的部署令牌
+  - `CLOUDFLARE_D1_DATABASE_ID`：刚刚在“步骤 3”获取的 D1 数据库 ID
+  - `CLOUDFLARE_D1_DATABASE_NAME`：默认为 `2fauth-db`
+- **系统安全与 OAuth 登录密钥：**
+  - `ENCRYPTION_KEY`、`JWT_SECRET` 及你要使用的 OAuth 登录配置，请统一查阅下方的 **[🧩 通用环境变量配置说明](#-通用环境变量配置说明)** 进行添加。
 
-2. 填写应用信息：
-   - **名称**: `2FAuth`
-   - **Homepage URL**: 填入你预期的站点域名，例如 `https://2fa.yourdomain.workers.dev` (部署后可绑定自定义域名)
-   - **Authorization callback URL**: 重点！必须填写 `https://<Homepage URL>/oauth/callback`
-
-3. 保存生成的 **`Client ID`** 和 **`Client Secret`**。
-
-<img width="800"  alt="image" src="https://github.com/user-attachments/assets/aa03b15f-deb2-4e48-bf4b-e57be342adbb" />
-
-#### 方案二：使用 Telegram 登录
-1. 在 Telegram 中搜索并添加官方机器人 **[@BotFather](https://t.me/BotFather)**。
-2. 发送 `/newbot` 指令，按照提示为你的 2FAuth 创建一个机器人，并获取它的 **`Bot Token`**（如 `123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`）。
-3. 获取机器人的 **`Bot Name`**（就是你刚才设置的以 `bot` 结尾的用户名，例如 `my_2fa_bot`）
-4. （非常重要）发送 `/setdomain` 指令，选择你刚才创建的机器人，然后发送你的应用域名（不需要 `https://`，例如：`2fa.yourdomain.workers.dev`）。
-5. （非常重要）配置 Webhook
-```bash
-curl "https://api.telegram.org/bot<你的BotToken>/setWebhook?url=https://<你设置的setdomain>/api/telegram/webhook"
-```
-
-### 第五步：配置 GitHub Actions Secrets
-前往你 Fork 的 GitHub 仓库的 **Settings** -> **Secrets and variables** -> **Actions** -> **New repository secret**，添加以下必填环境变量：
-
-#### ☁️ 必填：Cloudflare 资源授权
-| Secret Name | 说明 | 示例值 |
-| :--- | :--- | :--- |
-| `CLOUDFLARE_ACCOUNT_ID` | 你的 CF 账户 ID | `a1b2c3d4e5f6g7h8i9j0` (CF 面板的概述页右下角) |
-| `CLOUDFLARE_API_TOKEN` | CF 部署令牌 | `r4_xyz...` |
-
-#### 🔐 必填：系统安全参数
-
-> ⚠️ **高危警告：关于 ENCRYPTION_KEY 的修改风险**
-> `ENCRYPTION_KEY` 是用于加密数据库中 2FA 核心令牌种子的底层主密钥。**一旦系统投入生产使用并存入了数据，请绝对不要修改此环境变量的值！** 修改后将导致之前存入的所有数据瞬间无法解密，彻底变成死数据。
-
-| Secret Name | 说明 | 示例值 |
-| :--- | :--- | :--- |
-| `OAUTH_ALLOWED_USERS` | 允许登录的账户白名单邮箱或Telegram 用户数字ID | `me@example.com,you@example.com,5341743823` (多个逗号分隔) |
-| `OAUTH_ALLOW_ALL` | 无视白名单放行所有人（**仅限测试**） | `true` 或 `1` (生产环境切勿配置) |
-| `JWT_SECRET` | 签发会话状态的系统密钥 | 越长越好, 建议 32 位随机字符 |
-| `ENCRYPTION_KEY` | 对数据库持久化2FA核心密码集的唯一底层加密密钥 | **必填**。建议使用 `openssl rand -hex 32` 生成|
-
-#### 🔑 必填：Cloudflare D1数据库参数
-
-| Secret Name | 说明 | 示例值 |
-| :--- | :--- | :--- |
-| `CLOUDFLARE_D1_DATABASE_ID` | Cloudflare D1 数据库 ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `CLOUDFLARE_D1_DATABASE_NAME` | Cloudflare D1 数据库名称 | 默认为 `2fauth-db` |
-
-#### 🔑 必填：OAuth 身份信息 (按需选择对应的组合)
-> 如果你用 GitHub 登录，就填下面三个；如果你用 Google，就填 Google 的那三个。
-
-| 平台 | Client ID 变量组 (示例) | Client Secret 变量组 (示例) | Redirect URI 变量组 (示例) |
-| :--- | :--- | :--- | :--- |
-| **GitHub** | `OAUTH_GITHUB_CLIENT_ID`<br>`Ov23...` | `OAUTH_GITHUB_CLIENT_SECRET`<br>`a1b2...` | `OAUTH_GITHUB_REDIRECT_URI`<br>`https://xxx.workers.dev/oauth/callback` |
-| **Telegram** | `OAUTH_TELEGRAM_BOT_NAME`<br>`my_2fa_bot` | `OAUTH_TELEGRAM_BOT_TOKEN`<br>`123:ABC...` | *Telegram 无需 URI 变量* |
-| **Google** | `OAUTH_GOOGLE_CLIENT_ID`<br>`123...apps.googleusercontent.com` | `OAUTH_GOOGLE_CLIENT_SECRET`<br>`GOCSPX-...` | `OAUTH_GOOGLE_REDIRECT_URI`<br>`https://xxx.workers.dev/oauth/callback` |
-| **Cloudflare Access** | `OAUTH_CLOUDFLARE_CLIENT_ID`<br>`abc.access` | `OAUTH_CLOUDFLARE_CLIENT_SECRET`<br>`def...` | `OAUTH_CLOUDFLARE_REDIRECT_URI`<br>`https://xxx.workers.dev/oauth/callback`<br>*(该平台还需配置 `OAUTH_CLOUDFLARE_ORG_DOMAIN`，如: `https://<team>.cloudflareaccess.com`)* |
-| **Gitee** | `OAUTH_GITEE_CLIENT_ID`<br>`bcd...` | `OAUTH_GITEE_CLIENT_SECRET`<br>`efg...` | `OAUTH_GITEE_REDIRECT_URI`<br>`https://xxx.workers.dev/oauth/callback` |
-| **NodeLoc** | `OAUTH_NODELOC_CLIENT_ID`<br>`cde...` | `OAUTH_NODELOC_CLIENT_SECRET`<br>`fgh...` | `OAUTH_NODELOC_REDIRECT_URI`<br>`https://xxx.workers.dev/oauth/callback` |
-
-<img width="800"  alt="image" src="https://github.com/user-attachments/assets/ef907021-303d-4fd5-ba3e-913e8b0014a5" />
-
-### 第五步：触发自动化部署
+#### 5. 触发自动化部署
 1. 进入你的 GitHub 仓库的 **Actions** 页面。
 2. 找到 `Deploy to Cloudflare Workers` 工作流。
 3. 点击 **Run workflow** 手动触发执行（或者随便 Push 一下 main 分支）。
-4. **喝杯咖啡 ☕，等待自动化脚本完成：**
-   - 📦 自动构建 Vue 3 SPA 前端。
-   - 🗄️ 自动帮你初始化部署 D1 数据库内的表结构（Schema）。
-   - ⚡ 自动将带有静态前端的后端服务绑定至 Cloudflare 边缘节点。
-5. 部署成功后，控制台会输出你的 `xxx.workers.dev` 链接。登录进去，开始你的私有化 2FA 之旅！
+4. 等待自动化脚本完成，部署成功后，控制台会输出你的 `xxx.workers.dev` 访问链接。
+6. 访问专属的 `xxx.workers.dev` 域名，按照页面提示完成初始化配置。
+
+**手动触发deploy**
 
 <img width="800" height="1350" alt="image" src="https://github.com/user-attachments/assets/b2891365-5c1a-4a46-83c6-5cd53dd4b895" />
+
+**配置Secrets and variables示例**
+
+<img width="800"  alt="image" src="https://github.com/user-attachments/assets/ef907021-303d-4fd5-ba3e-913e8b0014a5" />
+
+---
+
+### 🧩 通用环境变量配置说明
+
+以下环境变量，不论是通过 **"方案一:一键部署"** 还是 **"方案二:GitHub Actions"**，都需要在Worker设置页面或仓库 Secrets 中按需配置：
+
+#### 1. 核心安全参数（必填！）
+
+> ⚠️ **高危警告：关于 ENCRYPTION_KEY 的修改风险**
+> `ENCRYPTION_KEY` 是用于加密数据库中 2FA 核心令牌种子的底层主密钥。**一旦系统投入生产使用并存入数据，请绝对不要再修改此环境变量的值！** 如果该密钥丢失或更改，数据库里旧的数据将无法解密！
+
+| 变量 / Secret Name | 说明 | 示例值 |
+| :--- | :--- | :--- |
+| `ENCRYPTION_KEY` | 对数据库持久化2FA核心密种加密的主密钥 | **必填**。建议使用 `openssl rand -hex 32` 生成，务必自己保存好备份。 |
+| `JWT_SECRET` | 签发安全会话状态的系统密钥 | **必填**。越长越好, 建议输入 32 位随机字符。 |
+| `OAUTH_ALLOWED_USERS` | 允许登录系统的白名单：支持填入邮箱，或 Telegram数字ID | **必填**。`me@example.com,you@example.com,5341743823` (多个配置必须用逗号分隔) |
+
+#### 2. 配置第三方登录
+*系统支持多种登录方式，你**至少需要选择一种进行环境配置***。我们最推荐使用 `GitHub` 作为后台登录。
+
+**使用 GitHub 登录获取办法**
+1. 访问 GitHub `Settings` -> `Developer Settings` -> `OAuth Apps` -> **New OAuth App**。
+2. 填写应用信息：
+   - **名称**: `2FAuth Worker`
+   - **Homepage URL**: 填入你预期的站点域名，例如 `https://2fa.yourdomain.workers.dev` (部署后可绑定自定义域名)
+   - **Authorization callback URL**: 必须填写 `https://<你的Homepage URL>/oauth/callback`
+3. 保存并复制生成的 **`Client ID`** 和 **`Client Secret`**。
+
+<img width="800"  alt="image" src="https://github.com/user-attachments/assets/aa03b15f-deb2-4e48-bf4b-e57be342adbb" />
+
+**使用 Telegram 登录获取办法**
+1. 在 Telegram 中搜索并添加官方机器人 **[@BotFather](https://t.me/BotFather)**。
+2. 发送 `/newbot` 指令，按照提示为你的 2FAuth 创建机器人，记录它的 **`Bot Token`**（如 `123456:ABC-DEF1234...`）。
+3. 记录机器人的 **`Bot Name`**（也就是你刚设置的以 bot 结尾的用户名，例如 `my_2fa_bot`）
+4. （非常重要）发送 `/setdomain` 指令，选择此机器人，然后发送你的应用域名（不需要 `https://`，例如：`2fa.yourdomain.workers.dev`）。
+5. （非常重要）由于我们要使用无服务器直接验证，需要配置 Webhook，复制下方链接在浏览器中访问一次注册 Webhook：
+```url
+https://api.telegram.org/bot<你的BotToken>/setWebhook?url=https://<你的应用域名>/api/telegram/webhook
+```
+
+**依据你选取的登录平台填入所需变量（任选一对即可）：**
+
+> 如果你使用 GitHub 登录，就在环境变量里配置 GitHub 那一行提供的所有变量选项。其它平台类似。
+
+| 平台 | Client ID 变量群 | Client Secret 变量群 | Redirect URI 回调变量群 (示例:`https://xxx.dev/oauth/callback`) |
+| :--- | :--- | :--- | :--- |
+| **GitHub** | `OAUTH_GITHUB_CLIENT_ID` | `OAUTH_GITHUB_CLIENT_SECRET` | `OAUTH_GITHUB_REDIRECT_URI` |
+| **Telegram** | `OAUTH_TELEGRAM_BOT_NAME`*(填你的Bot名称)* | `OAUTH_TELEGRAM_BOT_TOKEN`*(填Bot的Token密钥)* | *Telegram 无需 URI 回调变量* |
+| **Google** | `OAUTH_GOOGLE_CLIENT_ID` | `OAUTH_GOOGLE_CLIENT_SECRET` | `OAUTH_GOOGLE_REDIRECT_URI` |
+| **Cloudflare Access** | `OAUTH_CLOUDFLARE_CLIENT_ID` | `OAUTH_CLOUDFLARE_CLIENT_SECRET` | `OAUTH_CLOUDFLARE_REDIRECT_URI`<br>*(该平台还缺一不可：需额外配置 `OAUTH_CLOUDFLARE_ORG_DOMAIN`，如: `https://<team>.cloudflareaccess.com`)* |
+| **Gitee** | `OAUTH_GITEE_CLIENT_ID` | `OAUTH_GITEE_CLIENT_SECRET` | `OAUTH_GITEE_REDIRECT_URI` |
+| **NodeLoc** | `OAUTH_NODELOC_CLIENT_ID` | `OAUTH_NODELOC_CLIENT_SECRET` | `OAUTH_NODELOC_REDIRECT_URI` |
 
 
 ---
@@ -169,18 +199,19 @@ git clone https://github.com/nap0o/2fauth-worker.git
 cd 2fauth-worker
 
 # 1. 给前后端分别安装依赖
-cd frontend && npm install
-cd ../backend && npm install
+npm install
 
-# 2. 在 backend 目录,复制 example.dev.vars 为 .dev.vars, 按说明写入开发用的测试密钥
+# 2.复制 example.dev.vars 为 .dev.vars, 按说明写入开发用的测试密钥
 cp example.dev.vars .dev.vars
 
 # 3. 初始化本地的 SQLite Sandbox 数据库
-npx wrangler d1 execute 2fauth-db-dev --local --env dev --file=schema.sql
+npx wrangler d1 execute 2fauth-db-dev --local --env dev --file=backend/schema.sql
 
 # 4. 终端启动应用
 npm run dev
 ```
+
+---
 
 ## 🏗️ 全栈项目架构
 
@@ -189,8 +220,6 @@ npm run dev
 - **Frontend (Vue 3 + Vite)**：完全模块化，包含 `vault` (账户管理), `backup` (云端灾备), `auth` (身份验证), `tools` (工具箱) 等独立领域模块。状态管理由 Pinia 驱动。
 - **Backend (Hono.js)**：极其轻量的边缘框架。配合 `Drizzle ORM` 丝滑读写 D1 数据库。
 - **前后端天然一体**：由单代码库 (Monorepo) 管理，GitHub Actions 一次触发，同时构建前端产物并以 `Asset/SPA` 模式挂载至 Worker。
-
----
 
 ---
 

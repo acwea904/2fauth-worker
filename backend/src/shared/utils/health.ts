@@ -7,6 +7,8 @@ export interface HealthIssue {
     level: HealthIssueLevel;
     message: string;
     suggestion: string;
+    deploy_by_worker: string;
+    deploy_by_gitaction: string;
     missingFields?: string[];
 }
 
@@ -28,7 +30,9 @@ export const runHealthCheck = (env: EnvBindings): HealthCheckResult => {
             field: 'ENCRYPTION_KEY',
             level: 'critical',
             message: 'encryption_key_too_short',
-            suggestion: 'encryption_key_suggestion'
+            suggestion: 'encryption_key_suggestion',
+            deploy_by_worker: 'suggestion_deploy_by_worker',
+            deploy_by_gitaction: 'suggestion_deploy_by_gitaction'
         });
     } else {
         passedChecks.push('encryption_key_passed');
@@ -41,7 +45,9 @@ export const runHealthCheck = (env: EnvBindings): HealthCheckResult => {
             field: 'JWT_SECRET',
             level: 'critical',
             message: 'jwt_secret_too_short',
-            suggestion: 'jwt_secret_suggestion'
+            suggestion: 'jwt_secret_suggestion',
+            deploy_by_worker: 'suggestion_deploy_by_worker',
+            deploy_by_gitaction: 'suggestion_deploy_by_gitaction'
         });
     } else {
         passedChecks.push('jwt_secret_passed');
@@ -53,7 +59,9 @@ export const runHealthCheck = (env: EnvBindings): HealthCheckResult => {
             field: 'OAUTH_ALLOW_ALL',
             level: 'critical',
             message: 'oauth_allow_all_enabled',
-            suggestion: 'oauth_allow_all_suggestion'
+            suggestion: 'oauth_allow_all_suggestion',
+            deploy_by_worker: 'suggestion_deploy_by_worker',
+            deploy_by_gitaction: 'suggestion_deploy_by_gitaction'
         });
     } else {
         passedChecks.push('oauth_allow_all_passed');
@@ -66,7 +74,9 @@ export const runHealthCheck = (env: EnvBindings): HealthCheckResult => {
             field: 'OAUTH_ALLOWED_USERS',
             level: 'error',
             message: 'allowed_users_empty',
-            suggestion: 'allowed_users_suggestion'
+            suggestion: 'allowed_users_suggestion',
+            deploy_by_worker: 'suggestion_deploy_by_worker',
+            deploy_by_gitaction: 'suggestion_deploy_by_gitaction'
         });
     } else {
         passedChecks.push('allowed_users_passed');
@@ -92,6 +102,8 @@ export const runHealthCheck = (env: EnvBindings): HealthCheckResult => {
                 level: 'error',
                 message: 'github_config_incomplete',
                 suggestion: 'github_config_suggestion',
+                deploy_by_worker: 'suggestion_deploy_by_worker',
+                deploy_by_gitaction: 'suggestion_deploy_by_gitaction',
                 missingFields: missing
             });
         } else {
@@ -113,6 +125,8 @@ export const runHealthCheck = (env: EnvBindings): HealthCheckResult => {
                 level: 'error',
                 message: 'telegram_config_incomplete',
                 suggestion: 'telegram_config_suggestion',
+                deploy_by_worker: 'suggestion_deploy_by_worker',
+                deploy_by_gitaction: 'suggestion_deploy_by_gitaction',
                 missingFields: missing
             });
         } else {
@@ -135,6 +149,8 @@ export const runHealthCheck = (env: EnvBindings): HealthCheckResult => {
                 level: 'error',
                 message: 'google_config_incomplete',
                 suggestion: 'google_config_suggestion',
+                deploy_by_worker: 'suggestion_deploy_by_worker',
+                deploy_by_gitaction: 'suggestion_deploy_by_gitaction',
                 missingFields: missing
             });
         } else {
@@ -157,6 +173,8 @@ export const runHealthCheck = (env: EnvBindings): HealthCheckResult => {
                 level: 'error',
                 message: 'nodeloc_config_incomplete',
                 suggestion: 'nodeloc_config_suggestion',
+                deploy_by_worker: 'suggestion_deploy_by_worker',
+                deploy_by_gitaction: 'suggestion_deploy_by_gitaction',
                 missingFields: missing
             });
         } else {
@@ -179,6 +197,8 @@ export const runHealthCheck = (env: EnvBindings): HealthCheckResult => {
                 level: 'error',
                 message: 'gitee_config_incomplete',
                 suggestion: 'gitee_config_suggestion',
+                deploy_by_worker: 'suggestion_deploy_by_worker',
+                deploy_by_gitaction: 'suggestion_deploy_by_gitaction',
                 missingFields: missing
             });
         } else {
@@ -202,6 +222,8 @@ export const runHealthCheck = (env: EnvBindings): HealthCheckResult => {
                 level: 'error',
                 message: 'cloudflare_config_incomplete',
                 suggestion: 'cloudflare_config_suggestion',
+                deploy_by_worker: 'suggestion_deploy_by_worker',
+                deploy_by_gitaction: 'suggestion_deploy_by_gitaction',
                 missingFields: missing
             });
         } else {
@@ -216,7 +238,9 @@ export const runHealthCheck = (env: EnvBindings): HealthCheckResult => {
             field: 'NO_OAUTH_PROVIDER',
             level: 'error',
             message: 'no_provider_configured',
-            suggestion: 'no_provider_suggestion'
+            suggestion: 'no_provider_suggestion',
+            deploy_by_worker: 'suggestion_deploy_by_worker',
+            deploy_by_gitaction: 'suggestion_deploy_by_gitaction'
         });
     } else {
         passedChecks.push('oauth_provider_configured');

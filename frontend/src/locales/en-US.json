@@ -546,16 +546,18 @@
             }
         },
         "suggestions": {
-            "encryption_key_suggestion": "Copy the secure 32-byte key we generated locally below. Paste it into your Cloudflare -> Workers -> Settings -> Variables as ENCRYPTION_KEY.",
-            "jwt_secret_suggestion": "Copy the pre-generated cryptographically secure key below. Set it as your JWT_SECRET in Cloudflare.",
-            "oauth_allow_all_suggestion": "Immediate Action Required: Go to your Cloudflare dashboard and delete the OAUTH_ALLOW_ALL variable, or set it to false.",
-            "allowed_users_suggestion": "Add OAUTH_ALLOWED_USERS in your Cloudflare environment variables, and populate it with your GitHub (or respective platform) registered emails, separated by commas.",
-            "github_config_suggestion": "Verify your GitHub OAuth App secrets and keys.",
-            "telegram_config_suggestion": "Check your BotFather configurations and ensure all tokens are present.",
-            "google_config_suggestion": "Visit the Google Cloud Console and verify credentials.",
-            "nodeloc_config_suggestion": "Visit the NodeLoc Developer Dashboard and verify credentials.",
-            "gitee_config_suggestion": "Verify your Gitee developer credentials.",
-            "cloudflare_config_suggestion": "Four parameters are required: Client ID, Secret, Org Domain, and Redirect URI.",
+            "suggestion_deploy_by_worker": "One-click Deploy to Worker: Go to Cloudflare Dashboard -> Workers & Pages -> 2fauth-worker -> Settings -> Variables and Secrets",
+            "suggestion_deploy_by_gitaction": "Deploy via Github Action: Go to Forked Repository -> Settings -> Secrets and variables -> Actions",
+            "encryption_key_suggestion": "Please copy the high-strength random key pre-generated for you below, and set it as ENCRYPTION_KEY according to your deployment method.",
+            "jwt_secret_suggestion": "Please copy the high-strength random key pre-generated for you below, and set it as JWT_SECRET according to your deployment method.",
+            "oauth_allow_all_suggestion": "Depending on your deployment method, remove OAUTH_ALLOW_ALL or set its value to false.",
+            "allowed_users_suggestion": "Depending on your deployment method, fill in OAUTH_ALLOWED_USERS.",
+            "github_config_suggestion": "Depending on your deployment method, fill in OAUTH_GITHUB_CLIENT_ID, OAUTH_GITHUB_CLIENT_SECRET, and OAUTH_GITHUB_REDIRECT_URI.",
+            "telegram_config_suggestion": "Please check the bot configuration in BotFather to ensure the information is complete, and depending on your deployment method, fill in OAUTH_TELEGRAM_BOT_NAME, OAUTH_TELEGRAM_BOT_TOKEN, and OAUTH_TELEGRAM_REDIRECT_URI.",
+            "google_config_suggestion": "Please check the credentials configuration in Google Cloud Console, and depending on your deployment method, fill in OAUTH_GOOGLE_CLIENT_ID, OAUTH_GOOGLE_CLIENT_SECRET, and OAUTH_GOOGLE_REDIRECT_URI.",
+            "nodeloc_config_suggestion": "Please check your developer credentials in NodeLoc panel, and depending on your deployment method, fill in OAUTH_NODELOC_CLIENT_ID, OAUTH_NODELOC_CLIENT_SECRET, and OAUTH_NODELOC_REDIRECT_URI.",
+            "gitee_config_suggestion": "Please verify Gitee developer credentials, and depending on your deployment method, fill in OAUTH_GITEE_CLIENT_ID, OAUTH_GITEE_CLIENT_SECRET, and OAUTH_GITEE_REDIRECT_URI.",
+            "cloudflare_config_suggestion": "Requires four parameters: Client ID, Secret, Org Domain, Redirect URI. Depending on your deployment method, fill in OAUTH_CLOUDFLARE_CLIENT_ID, OAUTH_CLOUDFLARE_CLIENT_SECRET, and OAUTH_CLOUDFLARE_REDIRECT_URI.",
             "no_provider_suggestion": "Consult the README to pick the easiest provider. Retrieve the Client ID and Secret and configure them in Cloudflare's dashboard."
         }
     }

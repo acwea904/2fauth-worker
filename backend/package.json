@@ -1,12 +1,8 @@
 {
-  "name": "2FAuth Worker",
-  "version": "1.0.2",
-  "description": "A Secure 2FA Management Tool running on Cloudflare Workers",
-  "author": "nap0o",
-  "license": "AGPL-3.0",
+  "name": "backend",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --config wrangler.dev.toml --host 0.0.0.0 --port 8787 --test-scheduled",
+    "dev": "wrangler dev --config ../wrangler.dev.toml --host 0.0.0.0 --port 8787 --test-scheduled",
     "deploy": "wrangler deploy --minify"
   },
   "dependencies": {

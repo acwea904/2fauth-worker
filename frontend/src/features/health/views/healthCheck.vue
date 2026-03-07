@@ -38,6 +38,15 @@
               <div class="suggestion-box">
                 <div class="suggestion-title">{{ $t('healthCheck.how_to_fix') }}</div>
                 
+                <div v-if="issue.deploy_by_worker || issue.deploy_by_gitaction" class="deploy-method-guide">
+                  <p v-if="issue.deploy_by_worker" class="deploy-item">
+                    <el-icon><Monitor /></el-icon> {{ $t(`healthCheck.suggestions.${issue.deploy_by_worker}`) }}
+                  </p>
+                  <p v-if="issue.deploy_by_gitaction" class="deploy-item">
+                    <el-icon><Setting /></el-icon> {{ $t(`healthCheck.suggestions.${issue.deploy_by_gitaction}`) }}
+                  </p>
+                </div>
+                
                 <!-- 针对短密码的特殊处理：提供一键生成 -->
                 <div v-if="issue.message === 'encryption_key_too_short' || issue.message === 'jwt_secret_too_short'" class="fix-action">
                   <p>{{ $t(`healthCheck.suggestions.${issue.suggestion}`) }}</p>
@@ -90,7 +99,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { WarningFilled, CopyDocument, Refresh, Document, Select } from '@element-plus/icons-vue'
+import { WarningFilled, CopyDocument, Refresh, Document, Select, Monitor, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { request } from '@/shared/utils/request'
 import { useClipboard } from '@vueuse/core'
@@ -290,6 +299,22 @@ onMounted(() => {
   margin: 0 0 10px 0;
   font-size: 13px;
   color: var(--el-text-color-regular);
+}
+
+.deploy-method-guide {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--el-border-color);
+}
+
+.deploy-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+  font-weight: 500;
 }
 
 .text-danger p {
