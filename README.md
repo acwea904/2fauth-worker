@@ -36,17 +36,17 @@
 
 ---
 
-## 📊 强力对比：为什么我们需要 2FAuth Worker？
+## 📊 功能对比：为什么选择 2FAuth Worker？
 
 | 功能特性 | **2FAuth Worker** (本项目) | Google / MS Auth | Authy | 2FAS / Aegis | 1Password / Bitwarden |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **数据所有权** | **✅ 完全掌控 (私有云/NAS)** | ❌ 绑定大厂云端 | ❌ 锁定在厂商服务器 | ✅ 本地文件/私有云 | ⚠️ 托管在三方平台 |
-| **多端访问** | **✅ 网页+PWA (全平台)** | ⚠️ 仅手机 App | ❌ 桌面端已关停 | ⚠️ 仅手机 App | ✅ 全平台支持 |
-| **恢复便利性** | **✅ 多通道自动备份 (TG/S3)** | ⚠️ 换手机导入麻烦 | ✅ 云同步 | ⚠️ 需维护备份文件 | ✅ 云同步 |
-| **隐私保护** | **✅ 匿名部署，无追踪** | ⚠️ 大厂账号绑定 | ⚠️ 强制绑定手机号 | ✅ 无追踪 | ✅ 安全但目标较大 |
-| **离线可用性** | **✅ 支持 (PWA 强力缓存)** | ✅ 支持 | ✅ 支持 | ✅ 支持 | ✅ 支持 |
-| **部署成本** | **✅ 0 成本 (CF Serverless)** | ✅ 免费 | ✅ 免费 | ✅ 免费 | 💰 订阅/自建较重 |
-| **厂商倒闭风险** | **✅ 源码在手，永不丧失** | ⚠️ 生态强制迁移风险 | 🚨 随时下线(如 PC 端) | ✅ 开源可控 | ⚠️ 订阅制/闭源风险 |
+| 数据所有权 | ✅ 完全掌控 (私有云/NAS) | ❌ 绑定大厂云端 | ❌ 锁定在厂商服务器 | ✅ 本地文件/私有云 | ⚠️ 托管在三方平台 |
+| 多端访问 | ✅ 网页+PWA (全平台) | ⚠️ 仅手机 App | ❌ 桌面端已关停 | ⚠️ 仅手机 App | ✅ 全平台支持 |
+| 恢复便利性 | ✅ 多通道自动备份 (TG/S3) | ⚠️ 换手机导入麻烦 | ✅ 云同步 | ⚠️ 需维护备份文件 | ✅ 云同步 |
+| 隐私保护 | ✅ 匿名部署，无追踪 | ⚠️ 大厂账号绑定 | ⚠️ 强制绑定手机号 | ✅ 无追踪 | ✅ 安全但目标较大 |
+| 离线可用性 | ✅ 支持 (PWA 强力缓存) | ✅ 支持 | ✅ 支持 | ✅ 支持 | ✅ 支持 |
+| 部署成本 | ✅ 0 成本 (CF Serverless) | ✅ 免费 | ✅ 免费 | ✅ 免费 | 💰 订阅/自建较重 |
+| 厂商倒闭风险 | ✅ 源码在手，永不丧失 | ⚠️ 生态强制迁移风险 | 🚨 随时下线(如 PC 端) | ✅ 开源可控 | ⚠️ 订阅制/闭源风险 |
 
 > 🎯 **小结**：**2FAuth Worker** 既有 1Password 的多端便利，又有开源 App 的隐私性，更有 Serverless 的零成本。**支持 Telegram 机器人自动备份**更是解决了所有 Web 端和 App 端的“丢数据焦虑”，让安全触手可得。
 
@@ -63,13 +63,12 @@
 
 #### 2. 注意事项与授权指引
 *   在部署向导中，你需要授权 Cloudflare 读取该仓库（系统会自动在你的 GitHub 账号下创建一个私有克隆）。
-*   按照页面提示填写 **GitHub Client ID/Secret** 等参数（详见下文配置说明）。
+
 <details>
 <summary>点击查看：授权指引示意图</summary>  
-<img height="400" src="https://github.com/user-attachments/assets/cb64bc2f-6dcc-40cb-a781-3bc2c7bc5b28" />
+<img height="200" src="https://github.com/user-attachments/assets/cb64bc2f-6dcc-40cb-a781-3bc2c7bc5b28" /><br/>
 <img height="400" src="https://github.com/user-attachments/assets/3f186ea6-80f5-4d78-b90f-724af33a73ae" />
 <img height="400" src="https://github.com/user-attachments/assets/c1f2d5ee-2f3f-47c2-969f-00308cadff21" />
-<img height="600" src="https://github.com/user-attachments/assets/51d6e702-142e-4f58-8f02-c4a0bbcf009c" />
 </details>
 
 #### 3. 添加如下变量和机密
@@ -190,21 +189,10 @@ docker run -d --name 2fauth-worker \
 
 | 变量名 | 作用 | 获取建议 |
 | :--- | :--- | :--- |
-| `ENCRYPTION_KEY` | **核心：** 数据库加密密钥 | 设好后**绝对不要改**！改了旧数据就解不开了。建议设为 32 位随机字符。 |
-| `JWT_SECRET` | 登录状态密钥 | 随便填一段长字符串。 |
+| `ENCRYPTION_KEY` | **核心：** 数据库加密密钥 | 设好后**绝对不要改**！改了旧数据就解不开了。要求：32 位以上随机字符。 |
+| `JWT_SECRET` | 登录状态密钥 | 要求：32 位以上随机字符。 |
 | `OAUTH_ALLOWED_USERS` | **白名单：** 只有谁能进 | 填你的邮箱或 Telegram 数字 ID，多个用逗号隔开。 |
 
-### 如何配置第三方登录？
-我们最推荐使用 **GitHub 登录**：
-1. 访问 GitHub `Settings` -> `Developer Settings` -> `OAuth Apps` -> **New OAuth App**。
-2. 回调地址 (Callback URL) 必须填写：`https://你的域名/oauth/callback`。
-3. 拿到 `Client ID` 和 `Client Secret` 后填入上述环境变量中。
-
-<details>
-<summary>点击查看：OAuth 配置示意图</summary>  
-
-<img width="600" alt="OAuth 配置示意" src="https://github.com/user-attachments/assets/aa03b15f-deb2-4e48-bf4b-e57be342adbb" />
-</details>
 
 ### 依据你选取的登录平台，在环境变量中填入对应参数（任选其一即可）：
 
@@ -219,12 +207,43 @@ docker run -d --name 2fauth-worker \
 
 ---
 
-#### 💡 使用 Telegram 登录的特殊配置：
+#### 如何配置Github第三方登录（推荐）？
+1. 访问 GitHub `Settings` -> `Developer Settings` -> `OAuth Apps` -> **New OAuth App**。
+2. 回调地址 (Callback URL) 必须填写：`https://你的域名/oauth/callback`。
+3. 将 `Client ID`  `Client Secret` 和 `OAUTH_GITHUB_REDIRECT_URI` 填入环境变量。
+
+<details>
+<summary>点击查看：Github OAuth 配置示意图</summary>
+<img width="600" alt="Github OAuth 配置示意" src="https://github.com/user-attachments/assets/aa03b15f-deb2-4e48-bf4b-e57be342adbb" />
+</details>
+
+#### 如何配置Telegram第三方登录？
 1. 在 Telegram 搜索并添加官方机器人 **[@BotFather](https://t.me/BotFather)**，按照提示创建机器人。
 2. 记录生成的 **Token** (`OAUTH_TELEGRAM_BOT_TOKEN`) 和 **用户名** (`OAUTH_TELEGRAM_BOT_NAME`)。
 3. 请务必向 @BotFather 发送 `/setdomain` 指令，选择您的机器人，并输入您的**应用域名**（不需要 `https://`）。
 4. 由于本项目是 Serverless 架构，您需要手动注册 Webhook。将下方链接中的 `<Token>` 和 `<域名>` 替换后，在浏览器中访问一次：
    `https://api.telegram.org/bot<Token>/setWebhook?url=https://<域名>/api/telegram/webhook`
+5. 将 `OAUTH_TELEGRAM_BOT_TOKEN`、`OAUTH_TELEGRAM_BOT_NAME` 和 `OAUTH_TELEGRAM_REDIRECT_URI` 填入环境变量。
+
+#### 如何配置Cloudflared Access 第三方登录？
+1.  进入 **Cloudflare Zero Trust Dashboard** -> **Access** -> **Applications**。
+2.  创建一个 **SaaS** 应用 (Select "SaaS")。
+3.  配置 **Application**:
+    - **应用程序**:  `输入任意名称都行，如 2fauth`
+    - **选择身份验证协议**: `OIDC`
+    - **重定向 URL**: `https://你的域名/oauth/callback`
+4.  复制保存关键信息备用， `客户端 ID` 和 `客户端密码`。
+5.  Access 策略 -> 点击创建新策略 -> 添加策略
+    - **策略**: `Allow`
+    - **选择**：`Everyone`
+6.  其余均不需要额外配置，一直下一步到完成
+7.  将 `OAUTH_CLOUDFLARE_CLIENT_ID`、`OAUTH_CLOUDFLARE_CLIENT_SECRET`、 `OAUTH_CLOUDFLARE_REDIRECT_URI` 和 `OAUTH_CLOUDFLARE_ORG_DOMAIN` 填入环境变量。
+
+<details>
+<summary>点击查看：Cloudflare Access OAuth 配置示意图</summary>
+<img height="500" src="https://github.com/user-attachments/assets/1e315f8f-1932-4c90-a2d7-0edf8049529f" />
+<img height="400" src="https://github.com/user-attachments/assets/c6101ee8-f3c3-44f6-9286-f17865f8fb10" />
+</details>
 
 ---
 
@@ -237,6 +256,8 @@ docker run -d --name 2fauth-worker \
 3.  **智能环境感知 (Smart Shield)**：系统在启动和运行时会持续检查运行环境（如环境变量是否存在、数据库是否异常）。一旦发现异常，系统将拒绝生成任何验证码并进入保护模式。
 4.  **端到端隔离**：前端生成的敏感操作逻辑经过严格过滤，严禁任何 XSS (跨站脚本) 攻击。
 5.  **隐私第一**：本项目不包含任何追踪代码、分析工具或第三方统计插件。你的数据只属于你。
+
+> 📊 [**点击查看由 GitHub Actions 自动生成的实时安全审计报告**](https://github.com/nap0o/2fauth-worker/blob/security-audit/SECURITY.md)
 
 ---
 
