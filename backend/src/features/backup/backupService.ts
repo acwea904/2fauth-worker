@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { EnvBindings, AppError } from '@/app/config';
 import { BackupRepository } from '@/shared/db/repositories/backupRepository';
 import { encryptData, decryptData, encryptBackupFile } from '@/shared/utils/crypto';
-import { BackupProvider, WebDavProvider, S3Provider, TelegramProvider, GoogleDriveProvider } from '@/features/backup/providers';
+import { BackupProvider, WebDavProvider, S3Provider, TelegramProvider, GoogleDriveProvider, OneDriveProvider } from '@/features/backup/providers';
 import { decryptField } from '@/shared/db/db';
 import { vault as vaultTable, backupProviders } from '@/shared/db/schema';
 
@@ -17,6 +17,60 @@ export class BackupService {
         this.repository = new BackupRepository(env.DB);
     }
 
+    private readonly MASK = '******';
+    private readonly SENSITIVE_FIELDS: Record<string, string[]> = {
+        webdav: ['password'],
+        s3: ['secretAccessKey'],
+        telegram: ['botToken'],
+        gdrive: ['refreshToken'],
+        onedrive: ['refreshToken']
+    };
+
+    private maskConfigForFrontend(type: string, config: any) {
+        const fields = this.SENSITIVE_FIELDS[type];
+        if (!fields) return;
+        for (const field of fields) {
+            if (config[field]) config[field] = this.MASK;
+        }
+    }
+
+    private mergeMaskedConfig(type: string, incomingConfig: any, currentConfigBase: any) {
+        const fields = this.SENSITIVE_FIELDS[type];
+        if (!fields) return;
+        for (const field of fields) {
+            if (incomingConfig[field] === this.MASK || incomingConfig[field] === undefined || incomingConfig[field] === null) {
+                incomingConfig[field] = currentConfigBase[field];
+            }
+        }
+    }
+
+    private async generateEncryptedPayload(key: string, backupPassword: string): Promise<string> {
+        const vaultResults = await this.db.select().from(vaultTable).all();
+        const accounts = (await Promise.all(vaultResults.map(async (row: any) => {
+            const secret = await decryptField(row.secret, key);
+            if (!secret) return null;
+            return {
+                service: row.service,
+                account: row.account,
+                category: row.category,
+                secret: secret,
+                digits: row.digits,
+                period: row.period
+            };
+        }))).filter(Boolean);
+
+        const exportPayload = {
+            version: "2.0",
+            app: "2fauth",
+            encrypted: true,
+            timestamp: new Date().toISOString(),
+            accounts
+        };
+
+        const userEncrypted = await encryptBackupFile(exportPayload, backupPassword);
+        return JSON.stringify({ ...exportPayload, data: userEncrypted, accounts: undefined });
+    }
+
     private async getProvider(type: string, config: any, id?: number): Promise<BackupProvider> {
         switch (type) {
             case 'webdav':
@@ -27,6 +81,8 @@ export class BackupService {
                 return new TelegramProvider(config, this.db, id);
             case 'gdrive':
                 return new GoogleDriveProvider(config, this.env);
+            case 'onedrive':
+                return new OneDriveProvider(config, this.env);
             default:
                 throw new AppError('provider_not_found', 400);
         }
@@ -46,6 +102,9 @@ export class BackupService {
         if (type === 'gdrive' && processed.refreshToken) {
             processed.refreshToken = await encryptData(processed.refreshToken, key);
         }
+        if (type === 'onedrive' && processed.refreshToken) {
+            processed.refreshToken = await encryptData(processed.refreshToken, key);
+        }
         return JSON.stringify(processed);
     }
 
@@ -63,29 +122,19 @@ export class BackupService {
         if (type === 'gdrive' && config.refreshToken) {
             config.refreshToken = await decryptData(config.refreshToken, key);
         }
+        if (type === 'onedrive' && config.refreshToken) {
+            config.refreshToken = await decryptData(config.refreshToken, key);
+        }
         return config;
     }
 
     async getProvidersList() {
         const results = await this.repository.findAllSettings();
         const key = this.env.ENCRYPTION_KEY || this.env.JWT_SECRET;
-        const MASK = '******';
 
         return await Promise.all(results.map(async (row: any) => {
             const config = await this.processConfigForUsage(row.type, row.config, key);
-
-            if (row.type === 'webdav' && config.password) {
-                config.password = MASK;
-            }
-            if (row.type === 's3' && config.secretAccessKey) {
-                config.secretAccessKey = MASK;
-            }
-            if (row.type === 'telegram' && config.botToken) {
-                config.botToken = MASK;
-            }
-            if (row.type === 'gdrive' && config.refreshToken) {
-                config.refreshToken = MASK;
-            }
+            this.maskConfigForFrontend(row.type, config);
 
             return {
                 ...row,
@@ -129,23 +178,11 @@ export class BackupService {
     async updateProvider(id: number, data: any) {
         const { name, config, type, autoBackup, autoBackupPassword, autoBackupRetain } = data;
         const key = this.env.ENCRYPTION_KEY || this.env.JWT_SECRET;
-        const MASK = '******';
 
         const currentProvider = await this.db.select().from(backupProviders).where(eq(backupProviders.id, id)).get();
         if (currentProvider) {
             const currentConfigBase = await this.processConfigForUsage(currentProvider.type, currentProvider.config, key);
-            if (type === 'webdav' && (config.password === MASK || !config.password)) {
-                config.password = currentConfigBase.password;
-            }
-            if (type === 's3' && (config.secretAccessKey === MASK || !config.secretAccessKey)) {
-                config.secretAccessKey = currentConfigBase.secretAccessKey;
-            }
-            if (type === 'telegram' && (config.botToken === MASK || !config.botToken)) {
-                config.botToken = currentConfigBase.botToken;
-            }
-            if (type === 'gdrive' && (config.refreshToken === MASK || !config.refreshToken)) {
-                config.refreshToken = currentConfigBase.refreshToken;
-            }
+            this.mergeMaskedConfig(type, config, currentConfigBase);
         }
 
         const encryptedConfig = await this.processConfigForStorage(type, config, key);
@@ -175,25 +212,13 @@ export class BackupService {
     }
 
     async testConnection(type: string, config: any, id?: number) {
-        const MASK = '******';
         const key = this.env.ENCRYPTION_KEY || this.env.JWT_SECRET;
 
         if (id) {
             const currentProvider = await this.db.select().from(backupProviders).where(eq(backupProviders.id, id)).get();
             if (currentProvider) {
                 const currentConfigBase = await this.processConfigForUsage(currentProvider.type, currentProvider.config, key);
-                if (type === 'webdav' && config.password === MASK) {
-                    config.password = currentConfigBase.password;
-                }
-                if (type === 's3' && config.secretAccessKey === MASK) {
-                    config.secretAccessKey = currentConfigBase.secretAccessKey;
-                }
-                if (type === 'telegram' && config.botToken === MASK) {
-                    config.botToken = currentConfigBase.botToken;
-                }
-                if (type === 'gdrive' && config.refreshToken === MASK) {
-                    config.refreshToken = currentConfigBase.refreshToken;
-                }
+                this.mergeMaskedConfig(type, config, currentConfigBase);
             }
         }
 
@@ -201,6 +226,9 @@ export class BackupService {
             const provider = await this.getProvider(type, config, id);
             await provider.testConnection();
         } catch (e: any) {
+            if (e.message === 'oauth_token_revoked' || e.message?.includes('oauth_token_revoked')) {
+                throw new AppError('oauth_token_revoked', 401);
+            }
             throw new AppError(`connection_failed: ${e.message}`, 400);
         }
     }
@@ -229,33 +257,8 @@ export class BackupService {
                 throw new AppError('backup_password_length', 400);
             }
 
-            const vaultResults = await this.db.select().from(vaultTable).all();
-            const accounts = (await Promise.all(vaultResults.map(async (row: any) => {
-                const secret = await decryptField(row.secret, key);
-                if (!secret) return null;
-                return {
-                    service: row.service,
-                    account: row.account,
-                    category: row.category,
-                    secret: secret,
-                    digits: row.digits,
-                    period: row.period
-                };
-            }))).filter(Boolean);
-
-            const exportPayload = {
-                version: "2.0",
-                app: "2fauth",
-                encrypted: true,
-                timestamp: new Date().toISOString(),
-                accounts
-            };
-
-            const userEncrypted = await encryptBackupFile(exportPayload, backupPassword);
-            const fileContent = JSON.stringify({ ...exportPayload, data: userEncrypted, accounts: undefined });
-
             finalFilename = `2fa-backup-manual-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-            finalContent = fileContent;
+            finalContent = await this.generateEncryptedPayload(key, backupPassword);
         } else {
             throw new AppError('missing_fields', 400);
         }
@@ -274,6 +277,9 @@ export class BackupService {
             }).where(eq(backupProviders.id, id)).run();
         } catch (e: any) {
             await this.db.update(backupProviders).set({ lastBackupStatus: 'failed' }).where(eq(backupProviders.id, id)).run();
+            if (e.message === 'oauth_token_revoked' || e.message?.includes('oauth_token_revoked')) {
+                throw new AppError('oauth_token_revoked', 401);
+            }
             throw new AppError(`backup_failed: ${e.message}`, 500);
         }
     }
@@ -286,7 +292,14 @@ export class BackupService {
         const config = await this.processConfigForUsage(providerRow.type, providerRow.config, key);
         const provider = await this.getProvider(providerRow.type, config, providerRow.id);
 
-        return await provider.listBackups();
+        try {
+            return await provider.listBackups();
+        } catch (e: any) {
+            if (e.message === 'oauth_token_revoked' || e.message?.includes('oauth_token_revoked')) {
+                throw new AppError('oauth_token_revoked', 401);
+            }
+            throw e;
+        }
     }
 
     async downloadFile(id: number, filename: string) {
@@ -302,6 +315,9 @@ export class BackupService {
         try {
             return await provider.downloadBackup(filename);
         } catch (e: any) {
+            if (e.message === 'oauth_token_revoked' || e.message?.includes('oauth_token_revoked')) {
+                throw new AppError('oauth_token_revoked', 401);
+            }
             throw new AppError(`download_failed: ${e.message}`, 500);
         }
     }
@@ -332,29 +348,6 @@ export class BackupService {
         }
 
         const key = this.env.ENCRYPTION_KEY || this.env.JWT_SECRET;
-
-        const vaultResults = await this.db.select().from(vaultTable).all();
-        const accounts = (await Promise.all(vaultResults.map(async (row: any) => {
-            const secret = await decryptField(row.secret, key);
-            if (!secret) return null;
-            return {
-                service: row.service,
-                account: row.account,
-                category: row.category,
-                secret: secret,
-                digits: row.digits,
-                period: row.period
-            };
-        }))).filter(Boolean);
-
-        const exportPayload = {
-            version: "2.0",
-            app: "2fauth",
-            encrypted: true,
-            timestamp: new Date().toISOString(),
-            accounts
-        };
-
         const filename = `2fa-backup-auto-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
 
         for (const row of providers) {
@@ -362,8 +355,7 @@ export class BackupService {
 
             try {
                 const backupPassword = await decryptData(JSON.parse(row.autoBackupPassword), key);
-                const userEncrypted = await encryptBackupFile(exportPayload, backupPassword);
-                const fileContent = JSON.stringify({ ...exportPayload, data: userEncrypted, accounts: undefined });
+                const fileContent = await this.generateEncryptedPayload(key, backupPassword);
 
                 const config = await this.processConfigForUsage(row.type as string, row.config as string, key);
                 const provider = await this.getProvider(row.type as string, config, row.id);

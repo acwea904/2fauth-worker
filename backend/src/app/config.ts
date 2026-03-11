@@ -43,6 +43,8 @@ export const CSP_POLICY = {
         "https://static.cloudflareinsights.com",
         "https://accounts.google.com",
         "https://www.googleapis.com",
+        "https://login.microsoftonline.com",
+        "https://graph.microsoft.com",
     ],
     // 框架源
     FRAMES: [
@@ -72,6 +74,9 @@ export type EnvBindings = {
     OAUTH_GOOGLE_BACKUP_REDIRECT_URI?: string;
     OAUTH_TELEGRAM_BOT_NAME?: string;
     OAUTH_TELEGRAM_BOT_TOKEN?: string;
+    OAUTH_MICROSOFT_CLIENT_ID?: string;
+    OAUTH_MICROSOFT_CLIENT_SECRET?: string;
+    OAUTH_MICROSOFT_BACKUP_REDIRECT_URI?: string;
     OAUTH_ALLOWED_USERS: string;    // 允许登录的 Email 或 Username 白名单 (必填)
     OAUTH_ALLOW_ALL?: string;       // 是否允许所有用户登录 (仅推荐用于测试演示环境)
     JWT_SECRET: string;

@@ -1,4 +1,4 @@
-import { sanitizeInput } from './common';
+import { sanitizeInput } from '@/shared/utils/common';
 
 export function validateBase32Secret(secret: any): boolean {
     if (!secret || typeof secret !== 'string') return false;
@@ -31,7 +31,7 @@ export async function hmacSHA1(key: Uint8Array | string, data: number): Promise<
     const dataBuffer = new ArrayBuffer(8);
     new DataView(dataBuffer).setBigUint64(0, BigInt(data), false);
 
-    const cryptoKey = await crypto.subtle.importKey('raw', keyBuffer, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+    const cryptoKey = await crypto.subtle.importKey('raw', keyBuffer as any, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
     // @ts-ignore Cloudflare WebCrypto types mismatch with standard BufferSource
     const signature = await crypto.subtle.sign('HMAC', cryptoKey, dataBuffer as any as ArrayBuffer);
     return new Uint8Array(signature);

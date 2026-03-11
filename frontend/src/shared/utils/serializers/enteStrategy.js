@@ -1,5 +1,5 @@
 import { argon2id } from 'hash-wasm'
-import { parseOtpUri } from '../totp'
+import { parseOtpUri } from '@/shared/utils/totp'
 
 /**
  * Ente Auth 加密备份导入策略

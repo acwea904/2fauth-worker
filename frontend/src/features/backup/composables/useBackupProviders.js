@@ -1,16 +1,19 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { storeToRefs } from 'pinia'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
 import { backupService } from '@/features/backup/service/backupService'
 import { i18n } from '@/locales'
+import { useBackupStore } from '@/features/backup/store/backupStore'
 
 export function useBackupProviders() {
     const { t } = i18n.global
     const vaultStore = useVaultStore()
+    const backupStore = useBackupStore()
 
-    const providers = ref([])
+    const { providers, isLoading } = storeToRefs(backupStore)
+    const { fetchProviders: storeFetch } = backupStore
     const availableTypes = ref(['s3', 'telegram', 'webdav']) // Default types
-    const isLoading = ref(false)
 
     // Form and Dialog State
     const showConfigDialog = ref(false)
@@ -21,9 +24,13 @@ export function useBackupProviders() {
     const isEditingS3Secret = ref(false)
     const isEditingTelegramToken = ref(false)
     const isEditingGoogleDrive = ref(false)
+    const isEditingOneDrive = ref(false)
     const isAuthenticatingGoogle = ref(false)
+    const isAuthenticatingMicrosoft = ref(false)
     const authStatus = ref(null) // null, 'success', 'error'
+    const authStatusMicrosoft = ref(null)
     const authErrorMessage = ref('')
+    const authErrorMessageMicrosoft = ref('')
 
     const initialFormState = () => ({
         type: 's3',
@@ -41,23 +48,23 @@ export function useBackupProviders() {
 
     // Methods
     const fetchProviders = async () => {
+        // Use cached data first if available
         const cachedEncrypted = await vaultStore.getEncryptedBackupProviders()
         if (cachedEncrypted && Array.isArray(cachedEncrypted)) {
-            providers.value = cachedEncrypted
-        } else {
-            isLoading.value = true
+            backupStore.providers = cachedEncrypted
         }
 
         try {
-            const res = await backupService.getProviders()
-            if (res.success) {
-                providers.value = res.providers
-                if (res.availableTypes) {
-                    availableTypes.value = res.availableTypes
-                }
-                await vaultStore.saveEncryptedBackupProviders(res.providers)
+            await storeFetch()
+            // Sync available types if backend provides them
+            const res = await backupService.getProviders() // Re-fetch to get availableTypes
+            if (res.availableTypes) {
+                availableTypes.value = res.availableTypes
             }
-        } finally { isLoading.value = false }
+            await vaultStore.saveEncryptedBackupProviders(backupStore.providers)
+        } catch (e) {
+            console.error('[useBackupProviders] fetch failed:', e)
+        }
     }
 
     const openAddDialog = () => {
@@ -66,6 +73,7 @@ export function useBackupProviders() {
         isEditingS3Secret.value = false
         isEditingTelegramToken.value = false
         isEditingGoogleDrive.value = false
+        isEditingOneDrive.value = false
         form.value = initialFormState()
         hasExistingAutoPwd.value = false
         configUseExistingAutoPwd.value = false
@@ -78,6 +86,7 @@ export function useBackupProviders() {
         isEditingS3Secret.value = false
         isEditingTelegramToken.value = false
         isEditingGoogleDrive.value = false
+        isEditingOneDrive.value = false
         currentProviderId.value = provider.id
         form.value = JSON.parse(JSON.stringify({
             type: provider.type,
@@ -109,6 +118,8 @@ export function useBackupProviders() {
             if (!c.chatId) return t('backup.require_telegram_chat_id')
         } else if (form.value.type === 'gdrive') {
             if (!c.refreshToken) return t('backup.require_google_auth')
+        } else if (form.value.type === 'onedrive') {
+            if (!c.refreshToken) return t('backup.require_microsoft_auth')
         }
 
         if (form.value.autoBackup) {
@@ -126,7 +137,13 @@ export function useBackupProviders() {
         const error = validateForm()
         if (error) return ElMessage.warning(error)
 
-        isTesting.value = true
+        isTesting.value = true;
+        // Reset old error states before starting a new test to ensure UI reflects current result
+        authStatus.value = null;
+        authErrorMessage.value = '';
+        authStatusMicrosoft.value = null;
+        authErrorMessageMicrosoft.value = '';
+
         try {
             const res = await backupService.testConnection(
                 form.value.type,
@@ -135,7 +152,34 @@ export function useBackupProviders() {
             )
             if (res.success) ElMessage.success(t('backup.test_success'))
         } catch (e) {
-            // Already handled by request.js global error handler
+            // Error is handled here natively since we silenced the global request.js interceptor for testConnection
+            const rawMsg = e?.details?.message || e?.message || e?.response?.data?.message || (typeof e === 'string' ? e : t('common.error'));
+            const errMsg = rawMsg.toLowerCase();
+
+            // Listen for the standard project-level OAuth revocation signal
+            if (errMsg.includes('oauth_token_revoked')) {
+                const type = form.value.type;
+                console.error(`[OAuth Auth Check] The authorization token for ${type} is revoked or expired. Attempting UI reset...`, e);
+
+                // Reset the internal token holder
+                form.value.config.refreshToken = '';
+
+                // Switch UI back to authentication state
+                if (type === 'gdrive') {
+                    authStatus.value = 'error';
+                    authErrorMessage.value = t('backup.token_expired_or_revoked');
+                } else if (type === 'onedrive') {
+                    authStatusMicrosoft.value = 'error';
+                    authErrorMessageMicrosoft.value = t('backup.token_expired_or_revoked');
+                }
+
+                // If we are editing an existing provider, update the global store to reflect the state
+                if (isEditing.value && currentProviderId.value) {
+                    backupStore.markAsRevoked(currentProviderId.value);
+                }
+            } else {
+                ElMessage.error(t(`api_errors.${errMsg}`) || rawMsg);
+            }
         } finally { isTesting.value = false }
     }
 
@@ -207,6 +251,35 @@ export function useBackupProviders() {
         }
     }
 
+    const startMicrosoftAuth = async () => {
+        isAuthenticatingMicrosoft.value = true
+        authStatusMicrosoft.value = null
+        authErrorMessageMicrosoft.value = ''
+        try {
+            const res = await backupService.getMicrosoftAuthUrl()
+            if (res.success && res.authUrl) {
+                const name = 'microsoft_auth'
+                const specs = 'width=600,height=700,left=200,top=100'
+                const authWindow = window.open(res.authUrl, name, specs)
+
+                const timer = setInterval(() => {
+                    try {
+                        if (authWindow && authWindow.closed) {
+                            clearInterval(timer)
+                            if (isAuthenticatingMicrosoft.value && !authStatusMicrosoft.value) {
+                                isAuthenticatingMicrosoft.value = false
+                            }
+                        }
+                    } catch (e) { }
+                }, 1000)
+            } else {
+                isAuthenticatingMicrosoft.value = false
+            }
+        } catch (e) {
+            isAuthenticatingMicrosoft.value = false
+        }
+    }
+
     const handleAuthMessage = async (event) => {
         const data = event instanceof MessageEvent ? event.data : event
         if (!data || !data.type) return
@@ -222,6 +295,17 @@ export function useBackupProviders() {
             isAuthenticatingGoogle.value = false
             authStatus.value = 'error'
             authErrorMessage.value = data.message || t('backup.google_auth_failed')
+        } else if (data.type === 'MS_AUTH_SUCCESS') {
+            isAuthenticatingMicrosoft.value = false
+            authStatusMicrosoft.value = 'success'
+            form.value.config.refreshToken = data.refreshToken
+            if (!form.value.config.saveDir) {
+                form.value.config.saveDir = '/2fauth-worker-backup'
+            }
+        } else if (data.type === 'MS_AUTH_ERROR') {
+            isAuthenticatingMicrosoft.value = false
+            authStatusMicrosoft.value = 'error'
+            authErrorMessageMicrosoft.value = data.message || t('backup.microsoft_auth_failed')
         }
     }
 
@@ -243,9 +327,13 @@ export function useBackupProviders() {
         const bc = new BroadcastChannel('gdrive_oauth_channel')
         bc.onmessage = handleMsg
 
+        const bcMs = new BroadcastChannel('ms_oauth_channel')
+        bcMs.onmessage = handleMsg
+
         return () => {
             window.removeEventListener('message', handleMsg)
             bc.close()
+            bcMs.close()
         }
     }
 
@@ -262,9 +350,13 @@ export function useBackupProviders() {
         isEditingS3Secret,
         isEditingTelegramToken,
         isEditingGoogleDrive,
+        isEditingOneDrive,
         isAuthenticatingGoogle,
+        isAuthenticatingMicrosoft,
         authStatus,
+        authStatusMicrosoft,
         authErrorMessage,
+        authErrorMessageMicrosoft,
         form,
         hasExistingAutoPwd,
         configUseExistingAutoPwd,
@@ -275,6 +367,7 @@ export function useBackupProviders() {
         saveProvider,
         deleteProvider,
         startGoogleAuth,
+        startMicrosoftAuth,
         handleAuthMessage,
         setupAuthListener,
         availableTypes

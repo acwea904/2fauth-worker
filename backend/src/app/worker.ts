@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/d1';
-import app from './index.js';
-import * as schema from '../shared/db/schema.js';
-import { handleScheduledBackup } from '../features/backup/backupRoutes.js';
+import app from '@/app/index.js';
+import * as schema from '@/shared/db/schema.js';
+import { handleScheduledBackup } from '@/features/backup/backupRoutes.js';
 
 export default {
     async fetch(request: Request, env: any, ctx: any) {

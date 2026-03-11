@@ -1,4 +1,5 @@
 import { BackupProvider, BackupFile } from '@/features/backup/providers/backupProvider';
+import { AppError } from '@/app/config';
 
 export class GoogleDriveProvider implements BackupProvider {
     private clientId: string;
@@ -84,6 +85,11 @@ export class GoogleDriveProvider implements BackupProvider {
 
         if (!res.ok) {
             const err = await res.json() as any;
+            const errorDesc = (err.error || err.error_description || '').toLowerCase();
+            if (errorDesc.includes('invalid_grant') || errorDesc.includes('unauthorized') || res.status === 401) {
+                // Throw the project-standard error code for revoked tokens
+                throw new AppError('oauth_token_revoked', 401);
+            }
             throw new Error(`gdrive_auth_failed: ${err.error_description || res.statusText}`);
         }
 

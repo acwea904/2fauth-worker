@@ -45,6 +45,13 @@ export async function request(url, options = {}) {
 
         const data = await response.json()
 
+        // --- 全局拦截 OAuth Token 撤销信号 (统一各存储源报错) ---
+        if (data.message && typeof data.message === 'string' && data.message.includes('oauth_token_revoked')) {
+            const oauthErr = new Error('oauth_token_revoked');
+            oauthErr.isOAuthRevoked = true;
+            throw oauthErr;
+        }
+
         // --- 安全拦截大网 (Security Shield Interceptor) ---
         // 如果后端检测到环节变量配置危险，抛出全局 403，立刻拦截死并跳转
         if (response.status === 403 && data.message === 'health_check_failed') {
@@ -154,8 +161,8 @@ export async function request(url, options = {}) {
 
         return data
     } catch (error) {
-        // 屏蔽被 silent 处理过的 Auth Error
-        if (error.message !== 'Unauthorized/Forbidden' && !options.silent) {
+        // 屏蔽被 silent 处理过的 Auth Error，以及专门处理的 OAuth 撤销信号
+        if (error.message !== 'Unauthorized/Forbidden' && !options.silent && !error.isOAuthRevoked) {
             console.error('API Request Error:', error)
 
             // Only show toast if it wasn't already shown in the !response.ok block above

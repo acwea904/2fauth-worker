@@ -1,6 +1,12 @@
 import { request } from '@/shared/utils/request'
 import { backupError } from '@/shared/utils/errors/backupError'
 
+// If the error originated from an OAuth revocation, pass it through unchanged
+// so that consumers (useBackupActions, useBackupProviders) can detect it.
+const rethrowIfOAuth = (e) => {
+    if (e.isOAuthRevoked || e.message?.includes('oauth_token_revoked')) throw e;
+}
+
 /**
  * @typedef {Object} BackupProviderConfig
  * @property {string} url - WebDAV URL
@@ -51,7 +57,8 @@ export const backupService = {
         try {
             return await request('/api/backups/providers/test', {
                 method: 'POST',
-                body: JSON.stringify({ type, config, id })
+                body: JSON.stringify({ type, config, id }),
+                silent: true
             })
         } catch (e) {
             throw new backupError('Failed to test connection', 'CONNECTION_TEST_FAILED', e)
@@ -121,6 +128,7 @@ export const backupService = {
                 body: JSON.stringify({ password })
             })
         } catch (e) {
+            rethrowIfOAuth(e)
             throw new backupError('Failed to trigger backup', 'BACKUP_TRIGGER_FAILED', e)
         }
     },
@@ -135,6 +143,7 @@ export const backupService = {
         try {
             return await request(`/api/backups/providers/${id}/files`)
         } catch (e) {
+            rethrowIfOAuth(e)
             throw new backupError('Failed to fetch backup files', 'FILES_FETCH_FAILED', e)
         }
     },
@@ -155,6 +164,7 @@ export const backupService = {
                 silent
             })
         } catch (e) {
+            rethrowIfOAuth(e)
             throw new backupError('Failed to download backup file', 'FILE_DOWNLOAD_FAILED', e)
         }
     },
@@ -186,6 +196,18 @@ export const backupService = {
             return await request('/api/backups/oauth/google/auth', { method: 'POST' })
         } catch (e) {
             throw new backupError('Failed to get Google Auth URL', 'AUTH_URL_FETCH_FAILED', e)
+        }
+    },
+
+    /**
+     * 获取 Microsoft OneDrive 授权地址
+     * @returns {Promise<{success: boolean, authUrl: string}>}
+     */
+    async getMicrosoftAuthUrl() {
+        try {
+            return await request('/api/backups/oauth/microsoft/auth', { method: 'POST' })
+        } catch (e) {
+            throw new backupError('Failed to get Microsoft Auth URL', 'AUTH_URL_FETCH_FAILED', e)
         }
     }
 }

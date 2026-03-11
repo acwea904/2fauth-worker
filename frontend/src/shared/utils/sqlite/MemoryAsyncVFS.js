@@ -1,6 +1,6 @@
 // Copyright 2021 Roy T. Hashimoto. All Rights Reserved.
 // Copied from wa-sqlite examples and adapted for project use.
-import { MemoryVFS } from './MemoryVFS.js';
+import { MemoryVFS } from '@/shared/utils/sqlite/MemoryVFS.js';
 
 // Asynchronous memory filesystem. This filesystem requires an Asyncify
 // build. It is mainly useful for testing that the Asyncify build is

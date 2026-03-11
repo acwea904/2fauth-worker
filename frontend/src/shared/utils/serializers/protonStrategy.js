@@ -1,5 +1,5 @@
 import argon2 from 'argon2-browser/dist/argon2-bundled.min.js';
-import { parseOtpUri } from '../totp';
+import { parseOtpUri } from '@/shared/utils/totp';
 
 export default {
     name: 'Proton Pass (.json)',

@@ -45,10 +45,18 @@
                 {{ provider.lastBackupStatus }}
               </el-tag>
             </p>
-            
+
             <div class="backup-action-buttons">
-              <el-button type="success" plain size="small" @click="openBackupDialog(provider)">{{ $t('backup.backup_now') }}</el-button>
-              <el-button type="warning" plain size="small" @click="openRestoreDialog(provider)">{{ $t('backup.restore_data') }}</el-button>
+              <el-button
+                type="success" plain size="small"
+                :loading="checkingBackupProviderId === provider.id"
+                @click="openBackupDialog(provider)"
+              >{{ $t('backup.backup_now') }}</el-button>
+              <el-button
+                type="warning" plain size="small"
+                :loading="checkingRestoreProviderId === provider.id"
+                @click="openRestoreDialog(provider)"
+              >{{ $t('backup.restore_data') }}</el-button>
             </div>
           </div>
         </el-card>
@@ -70,6 +78,7 @@
             <el-option v-if="availableTypes.includes('telegram')" label="Telegram" value="telegram" />
             <el-option v-if="availableTypes.includes('webdav')" label="WebDAV" value="webdav" />
             <el-option v-if="availableTypes.includes('gdrive')" label="Google Drive" value="gdrive" />
+            <el-option v-if="availableTypes.includes('onedrive')" label="OneDrive" value="onedrive" />
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('backup.name_label')">
@@ -157,7 +166,7 @@
                >
                  <el-icon v-if="isAuthenticatingGoogle" class="is-loading"><Loading /></el-icon>
                  <component v-else :is="iconGoogle" width="20" height="20" />
-                 <span>{{ isAuthenticatingGoogle ? '正在等待授权...' : $t('backup.auth_with_google') }}</span>
+                 <span>{{ isAuthenticatingGoogle ? $t('backup.waiting_authorization') : $t('backup.auth_with_google') }}</span>
                </button>
              </template>
 
@@ -166,7 +175,7 @@
                 <div class="text-danger flex flex-items-center flex-column py-10">
                   <el-icon size="42"><CircleClose /></el-icon>
                   <p class="mt-15 font-bold">{{ authErrorMessage }}</p>
-                  <el-button type="primary" link class="mt-10" @click="startGoogleAuth">点击重试</el-button>
+                  <el-button type="primary" link class="mt-10" @click="startGoogleAuth">{{ $t('backup.re_authorize') }}</el-button>
                 </div>
              </template>
           </div>
@@ -176,7 +185,7 @@
             <div class="backup-status-box is-success">
               <div class="backup-status-content">
                 <el-icon class="status-icon"><CircleCheck /></el-icon>
-                <span class="status-text">{{ $t('backup.authorized_success') }}</span>
+                <span class="status-text">{{ $t('backup.authorized_success_gd') }}</span>
               </div>
               <el-button type="primary" link @click="startGoogleAuth">{{ $t('backup.re_authorize') }}</el-button>
             </div>
@@ -197,6 +206,67 @@
                   <span class="status-text text-secondary">{{ $t('backup.gdrive_token_active') }}</span>
                 </div>
                 <el-button type="primary" link @click="startGoogleAuth">{{ $t('backup.re_authorize') }}</el-button>
+              </div>
+            </el-form-item>
+          </div>
+        </template>
+
+        <!-- Microsoft OneDrive 配置 -->
+        <template v-if="form.type === 'onedrive'">
+          <!-- 1. 授权引导/状态区域 (仅在表单中没有 Token 或 正在授权 或 授权成功但未保存时显示) -->
+          <div v-if="!form.config.refreshToken" class="p-10 mb-20 text-center bg-fill rounded-8 border-1 border-dashed min-h-120 flex flex-center flex-column">
+             <!-- 初始/加载状态 -->
+             <template v-if="!authStatusMicrosoft">
+               <p class="mb-15 text-secondary text-13">{{ $t('backup.onedrive_auth_tip') }}</p>
+               <button 
+                 type="button" 
+                 class="btn-oauth-auth btn-microsoft-auth pointer" 
+                 :class="{ 'is-loading': isAuthenticatingMicrosoft }"
+                 :disabled="isAuthenticatingMicrosoft"
+                 @click="startMicrosoftAuth"
+               >
+                 <el-icon v-if="isAuthenticatingMicrosoft" class="is-loading"><Loading /></el-icon>
+                 <component v-else :is="iconMicrosoftAuth" width="20" height="20" />
+                 <span>{{ isAuthenticatingMicrosoft ? $t('backup.waiting_authorization') : $t('backup.auth_with_microsoft') }}</span>
+               </button>
+             </template>
+
+             <!-- 授权失败反馈 -->
+             <template v-else-if="authStatusMicrosoft === 'error'">
+                <div class="text-danger flex flex-items-center flex-column py-10">
+                  <el-icon size="42"><CircleClose /></el-icon>
+                  <p class="mt-15 font-bold">{{ authErrorMessageMicrosoft }}</p>
+                  <el-button type="primary" link class="mt-10" @click="startMicrosoftAuth">{{ $t('backup.re_authorize') }}</el-button>
+                </div>
+             </template>
+          </div>
+
+          <!-- 2. 已授权标识 (仅在新增模式下授权成功后显示) -->
+          <el-form-item v-if="!isEditing && authStatusMicrosoft === 'success'" class="animate-fade-in">
+            <div class="backup-status-box is-success">
+              <div class="backup-status-content">
+                <el-icon class="status-icon"><CircleCheck /></el-icon>
+                <span class="status-text">{{ $t('backup.authorized_success_ms') }}</span>
+              </div>
+              <el-button type="primary" link @click="startMicrosoftAuth">{{ $t('backup.re_authorize') }}</el-button>
+            </div>
+          </el-form-item>
+
+          <!-- 3. 配置项区域 (有 Token 时才显示) -->
+          <div v-if="form.config.refreshToken">
+            <el-form-item :label="$t('backup.save_dir')">
+              <el-input v-model="form.config.saveDir" :placeholder="$t('backup.save_dir_placeholder')" />
+              <div class="backup-form-tip">{{ $t('backup.onedrive_folder_tip') }}</div>
+            </el-form-item>
+
+            <!-- 令牌管理 (仅在编辑模式显示，且用户通常无需操作，仅提供重新授权) -->
+            <el-form-item v-if="isEditing" :label="$t('backup.onedrive_refresh_token')">
+              <div class="backup-status-box">
+                <div class="backup-status-content">
+                  <el-icon class="status-icon" color="var(--el-text-color-secondary)"><CircleCheck /></el-icon>
+                  <span class="status-text text-secondary">{{ $t('backup.onedrive_token_active') }}</span>
+                </div>
+                <el-button type="primary" link @click="startMicrosoftAuth">{{ $t('backup.re_authorize') }}</el-button>
               </div>
             </el-form-item>
           </div>
@@ -288,6 +358,7 @@
 import { onMounted, onUnmounted } from 'vue'
 import { Plus, Edit, Delete, CircleCheck, CircleClose, Timer, Loading } from '@element-plus/icons-vue'
 import iconGoogle from '@/shared/components/icons/iconGoogle.vue'
+import iconMicrosoftAuth from '@/shared/components/icons/iconMicrosoftAuth.vue'
 import { useLayoutStore } from '@/shared/stores/layoutStore'
 import { useBackupProviders } from '@/features/backup/composables/useBackupProviders'
 import { useBackupActions } from '@/features/backup/composables/useBackupActions'
@@ -297,19 +368,19 @@ const layoutStore = useLayoutStore()
 
 const {
   providers, isLoading, showConfigDialog, isEditing, isTesting, isSaving,
-  isEditingWebdavPwd, isEditingS3Secret, isEditingTelegramToken, isEditingGoogleDrive, form,
+  isEditingWebdavPwd, isEditingS3Secret, isEditingTelegramToken, isEditingGoogleDrive, isEditingOneDrive, form,
   hasExistingAutoPwd, configUseExistingAutoPwd, fetchProviders, openAddDialog,
   editProvider, testConnection, saveProvider, deleteProvider,
-  startGoogleAuth, handleAuthMessage, isAuthenticatingGoogle, authStatus, authErrorMessage,
+  startGoogleAuth, startMicrosoftAuth, handleAuthMessage, isAuthenticatingGoogle, isAuthenticatingMicrosoft, authStatus, authStatusMicrosoft, authErrorMessage, authErrorMessageMicrosoft,
   setupAuthListener, availableTypes
 } = useBackupProviders()
 
 const {
-  showBackupDialog, backupPassword, isBackingUp, useAutoPassword, currentActionProvider,
-  openBackupDialog, handleBackup, showRestoreListDialog, isLoadingFiles, backupFiles,
+  showBackupDialog, backupPassword, isBackingUp, checkingBackupProviderId, useAutoPassword, currentActionProvider,
+  openBackupDialog, handleBackup, showRestoreListDialog, isLoadingFiles, checkingRestoreProviderId, backupFiles,
   showRestoreConfirmDialog, restorePassword, selectedFile, isRestoring, openRestoreDialog,
   selectRestoreFile, handleRestore
-} = useBackupActions(emit, fetchProviders)
+} = useBackupActions(emit, fetchProviders, (provider) => editProvider(provider))
 
 let cleanupAuthListener = null
 
@@ -324,12 +395,14 @@ onUnmounted(() => {
   if (cleanupAuthListener) cleanupAuthListener()
 })
 
+
 const getProviderTypeTag = (type) => {
   const map = {
     webdav: 'primary',
     s3: 'warning',
     telegram: 'success',
-    gdrive: 'danger'
+    gdrive: 'danger',
+    onedrive: ''
   }
   return map[type] || 'info'
 }

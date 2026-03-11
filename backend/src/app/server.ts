@@ -2,11 +2,12 @@ import { serve } from '@hono/node-server';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import cron from 'node-cron';
-import app from './index.js';
-import * as schema from '../shared/db/schema.js';
-import { handleScheduledBackup } from '../features/backup/backupRoutes.js';
+import app from '@/app/index.js';
+import * as schema from '@/shared/db/schema.js';
+import { handleScheduledBackup } from '@/features/backup/backupRoutes.js';
 import fs from 'fs';
 import path from 'path';
+
 // 1. Resolve paths
 // In Docker, we run from /app, and frontend is at /app/frontend/dist
 // The server.js is at /app/backend/dist/server.js

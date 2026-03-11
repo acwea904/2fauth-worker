@@ -131,11 +131,11 @@
 }
 
 /* Fix for loading icon in buttons */
-.el-button.is-loading .el-icon.is-loading {
+/* .el-button.is-loading .el-icon.is-loading {
     margin-right: 8px;
     animation: rotate 2s linear infinite;
     margin-bottom: 0 !important;
-}
+} */
 
 @keyframes rotate {
     from {
@@ -197,4 +197,26 @@
 
 .dark .btn-google-auth:hover {
     background-color: #1e1f20;
+}
+
+.btn-microsoft-auth {
+    background-color: #ffffff;
+    border: 1px solid #8c8c8c;
+    color: #5e5e5e;
+}
+
+.btn-microsoft-auth:hover {
+    background-color: #f3f2f1;
+    border-color: #8c8c8c;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 4px 8px 3px rgba(0, 0, 0, 0.05);
+}
+
+.dark .btn-microsoft-auth {
+    background-color: #292929;
+    border-color: #8c8c8c;
+    color: #ffffff;
+}
+
+.dark .btn-microsoft-auth:hover {
+    background-color: #333333;
 }
