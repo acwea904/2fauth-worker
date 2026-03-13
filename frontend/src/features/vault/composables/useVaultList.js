@@ -16,7 +16,7 @@ import { vaultService } from '@/features/vault/service/vaultService'
  * 3. 并发解耦: 本 Composable `useVaultList` 独立负责 Vue Query 分页和本地缓存维护（`vaultStore.saveData`）。
  *    对于后续验证码计算的具体逻辑，委托给外部通过参数 `afterLoadRef` 回调。
  * 4. 离线解密与存储绑定 (Device Key): 
- *    获取数据后会调用 `vaultStore.saveData`。该方法使用从 IndexedDB (device_salt) 读取的设备金钥，
+ *    获取数据后会调用 `vaultStore.saveData`。该方法使用从 IndexedDB (sys:sec:device_salt) 读取的设备金钥，
  *    对数据进行本地二次加密存储。这确保了：a) 即使数据库泄露也无法在无设备指纹的情况下解密；b) 提升了离线访问安全性。
  * ----------------------------------------------
  */

@@ -1,7 +1,8 @@
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthUserStore } from '@/features/auth/store/authUserStore'
-import { setIdbItem } from '@/shared/utils/idb'
+import { setIdbItem, getIdbItem, removeIdbItem } from '@/shared/utils/idb'
 import { authService } from '@/features/auth/service/authService'
 
 /**
@@ -24,14 +25,14 @@ export function useOAuthCallback() {
         let providerId = route.params.provider
         if (!providerId) {
             if (hash) providerId = 'telegram'
-            else providerId = localStorage.getItem('oauth_provider') || 'github'
+            else providerId = (await getIdbItem('tmp:auth:provider')) || 'github'
         }
 
         // 优化：优先从缓存读取提供商名称
         try {
-            const cached = localStorage.getItem('oauth_providers_cache')
+            const cached = await getIdbItem('sys:cache:providers')
             if (cached) {
-                const providers = JSON.parse(cached)
+                const providers = cached
                 const p = providers.find(x => x.id === providerId)
                 if (p) providerName.value = p.name
             } else {
@@ -56,7 +57,7 @@ export function useOAuthCallback() {
                 errorMsg.value = t('auth.telegram_missing_hash')
                 return
             }
-            const savedState = localStorage.getItem('oauth_state')
+            const savedState = await getIdbItem('tmp:auth:state')
             payload = { ...route.query, state: savedState }
         } else {
             if (!code || !state) {
@@ -65,20 +66,20 @@ export function useOAuthCallback() {
             }
 
             // 防御 CSRF：必须检查 State 匹不匹配
-            const savedState = localStorage.getItem('oauth_state')
+            const savedState = await getIdbItem('tmp:auth:state')
             if (!savedState || savedState !== state) {
                 errorMsg.value = t('auth.state_mismatch')
                 return
             }
 
-            const codeVerifier = localStorage.getItem('oauth_code_verifier')
+            const codeVerifier = await getIdbItem('tmp:auth:verifier')
             payload = { code, state, codeVerifier }
         }
 
         // 无论成功与否，用过一次立马清除防止重放 (Replay Attack)
-        localStorage.removeItem('oauth_state')
-        localStorage.removeItem('oauth_provider')
-        localStorage.removeItem('oauth_code_verifier')
+        await removeIdbItem('tmp:auth:state')
+        await removeIdbItem('tmp:auth:provider')
+        await removeIdbItem('tmp:auth:verifier')
 
         try {
             const startTime = Date.now()
@@ -97,7 +98,7 @@ export function useOAuthCallback() {
                 // 持久化设备指纹标识 (Device Key / Salt)
                 // 核心: 离线秒开和端到端加密的解密因子
                 if (data.deviceKey) {
-                    await setIdbItem('device_salt', data.deviceKey)
+                    await setIdbItem('sys:sec:device_salt', data.deviceKey)
                 }
                 // 更新状态机进入应用主流程
                 const authUserStore = useAuthUserStore()

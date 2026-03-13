@@ -81,3 +81,12 @@ WHERE rowid NOT IN (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS vault_service_account_uq ON vault(lower(service), lower(account));
+
+-- 速率限制表
+CREATE TABLE IF NOT EXISTS rate_limits (
+    key TEXT PRIMARY KEY,        -- 标识符 (如 IP:path 或 Email:path)
+    attempts INTEGER DEFAULT 0,  -- 已尝试次数
+    last_attempt INTEGER,        -- 最后尝试时间戳
+    expires_at INTEGER           -- 锁定过期时间 (如果有)
+);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_expires ON rate_limits(expires_at);

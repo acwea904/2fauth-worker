@@ -3,6 +3,7 @@ import { ElMessage } from 'element-plus'
 import { useAuthUserStore } from '@/features/auth/store/authUserStore'
 import { useLayoutStore } from '@/shared/stores/layoutStore'
 import { i18n } from '@/locales'
+import { removeIdbItem } from '@/shared/utils/idb'
 
 // 辅助函数：从 document.cookie 中安全地读取指定的 cookie 值
 export function getCookie(name) {
@@ -105,14 +106,15 @@ export async function request(url, options = {}) {
                     const authUserStore = useAuthUserStore()
                     authUserStore.clearUserInfo()
                 } catch (e) {
-                    // Fallback to manual localstorage clear if store is unavailable
-                    localStorage.removeItem('userInfo')
-                    localStorage.removeItem('secure_vault')
-                    localStorage.removeItem('backup_providers_cache')
+                    // Fallback to manual IDB clear if store is unavailable
+                    removeIdbItem('auth:user:profile')
+                    removeIdbItem('vault:data:main')
+                    removeIdbItem('vault:conf:backups')
+                    removeIdbItem('sys:sec:device_salt')
                     sessionStorage.removeItem('vault_session_key')
                 }
 
-                if (router && router.currentRoute.value.path !== '/login') {
+                if (window.location.pathname !== '/login') {
                     // 全局会话过期使用物理跳转，清空内存所有闭包与过期 JS 分块引用
                     window.location.href = '/login'
                 } else {

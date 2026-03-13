@@ -10,6 +10,7 @@ import router from '@/app/router'
 import { useThemeStore } from '@/shared/stores/themeStore'
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
+import { useAuthUserStore } from '@/features/auth/store/authUserStore'
 import { i18n } from '@/locales'
 
 const app = createApp(App)
@@ -69,6 +70,11 @@ app.use(VueQueryPlugin, {
 })
 
 const vaultStore = useVaultStore()
-vaultStore.init().then(() => {
+const authUserStore = useAuthUserStore()
+
+Promise.all([
+  vaultStore.init(),
+  authUserStore.init()
+]).then(() => {
   app.mount('#app')
 })

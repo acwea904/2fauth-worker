@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { EnvBindings } from '@/app/config';
 import { authMiddleware } from '@/shared/middleware/auth';
+import { rateLimit } from '@/shared/middleware/rateLimitMiddleware';
 import { VaultService } from '@/features/vault/vaultService';
 import { VaultRepository } from '@/shared/db/repositories/vaultRepository';
 // No createDb required here as DB is instantiated at the root (worker.ts/server.ts) and passed via c.env
@@ -76,7 +77,10 @@ vault.post('/batch-delete', async (c) => {
 });
 
 // 导出账户
-vault.post('/export', async (c) => {
+vault.post('/export', rateLimit({
+    windowMs: 60 * 1000, 
+    max: 5,
+}), async (c) => {
     const service = getService(c);
     const { type, password } = await c.req.json();
 
@@ -88,7 +92,10 @@ vault.post('/export', async (c) => {
 });
 
 // 导入账户
-vault.post('/import', async (c) => {
+vault.post('/import', rateLimit({
+    windowMs: 60 * 1000,
+    max: 5,
+}), async (c) => {
     const user = c.get('user');
     const service = getService(c);
     const { content, type, password } = await c.req.json();

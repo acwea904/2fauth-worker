@@ -3,6 +3,7 @@ import { VaultRepository } from '@/shared/db/repositories/vaultRepository';
 import { encryptField, decryptField, batchInsertVaultItems } from '@/shared/db/db';
 import { encryptData, decryptData } from '@/shared/utils/crypto';
 import { parseOTPAuthURI, validateBase32Secret } from '@/shared/utils/totp';
+import { sanitizeInput } from '@/shared/utils/common';
 
 export class VaultService {
     private repository: VaultRepository;
@@ -65,10 +66,13 @@ export class VaultService {
             throw new AppError('invalid_secret_format', 400);
         }
 
-        // 入库清洗：去掉 account 中可能带有的 Issuer: 前缀
+        // 入库清洗
+        service = sanitizeInput(service, 50);
         if (typeof account === 'string' && account.includes(':')) {
             account = account.split(':').pop()?.trim() || account;
         }
+        account = sanitizeInput(account, 100);
+        category = sanitizeInput(category || '', 30);
 
         // duplicate check (case‑insensitive & trimmed) using repository helper
         const existing = await this.repository.findByServiceAccount(service, account);
@@ -103,10 +107,13 @@ export class VaultService {
             throw new AppError('missing_service_account', 400);
         }
 
-        // 入库清洗：去掉 account 中可能带有的 Issuer: 前缀
+        // 入库清洗
+        service = sanitizeInput(service, 50);
         if (typeof account === 'string' && account.includes(':')) {
             account = account.split(':').pop()?.trim() || account;
         }
+        account = sanitizeInput(account, 100);
+        category = sanitizeInput(category || '', 30);
 
         // secret 可选：若未传则保留数据库中已有的加密值
         let encryptedSecret: string;

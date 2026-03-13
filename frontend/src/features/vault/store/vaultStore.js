@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { encryptDataWithPassword, decryptDataWithPassword } from '@/shared/utils/crypto'
-import { getIdbItem } from '@/shared/utils/idb'
+import { getIdbItem, setIdbItem } from '@/shared/utils/idb'
 
 export const useVaultStore = defineStore('vault', () => {
   const isUnlocked = ref(true) // 默认挂载状态
@@ -10,14 +10,14 @@ export const useVaultStore = defineStore('vault', () => {
 
   // 初始化检查
   const init = async () => {
-    const encrypted = localStorage.getItem('secure_vault')
+    const encrypted = await getIdbItem('vault:data:main')
     hasVault.value = !!encrypted
   }
 
   // 获取本地运行时参数
   const getDeviceKey = async () => {
     try {
-      return await getIdbItem('device_salt')
+      return await getIdbItem('sys:sec:device_salt')
     } catch (e) {
       return null
     }
@@ -28,7 +28,7 @@ export const useVaultStore = defineStore('vault', () => {
     const key = await getDeviceKey()
     if (!key) throw new Error('设备授权信息已失效，请重新登录')
 
-    const encrypted = localStorage.getItem('secure_vault')
+    const encrypted = await getIdbItem('vault:data:main')
     if (!encrypted) return { vault: [] }
 
     try {
@@ -44,7 +44,7 @@ export const useVaultStore = defineStore('vault', () => {
     const key = await getDeviceKey()
     if (!key) throw new Error('设备授权信息已失效，请重新登录')
     const encrypted = await encryptDataWithPassword(data, key)
-    localStorage.setItem('secure_vault', encrypted)
+    await setIdbItem('vault:data:main', encrypted)
     hasVault.value = true
   }
 
@@ -52,7 +52,7 @@ export const useVaultStore = defineStore('vault', () => {
   const getEncryptedBackupProviders = async () => {
     const key = await getDeviceKey()
     if (!key) return null
-    const encrypted = localStorage.getItem('backup_providers_cache')
+    const encrypted = await getIdbItem('vault:conf:backups')
     if (!encrypted) return null
     try {
       const decrypted = await decryptDataWithPassword(encrypted, key)
@@ -66,7 +66,7 @@ export const useVaultStore = defineStore('vault', () => {
     const key = await getDeviceKey()
     if (!key) return
     const encrypted = await encryptDataWithPassword({ providers }, key)
-    localStorage.setItem('backup_providers_cache', encrypted)
+    await setIdbItem('vault:conf:backups', encrypted)
   }
 
   // 残留供部分旧UI避免报错的空函数 (即将被清理)

@@ -2,8 +2,9 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { authService } from '@/features/auth/service/authService'
 import { i18n } from '@/locales'
+import { setIdbItem, getIdbItem } from '@/shared/utils/idb'
 
-const CACHE_KEY = 'oauth_providers_cache'
+const CACHE_KEY = 'sys:cache:providers'
 
 /**
  * 处理 OAuth 提供商列表加载与授权重定向
@@ -15,14 +16,9 @@ export function useOAuthProviders() {
 
     onMounted(async () => {
         // 1. 优先从缓存读取，实现秒开 (Offline-first / Stale-while-revalidate)
-        const cached = localStorage.getItem(CACHE_KEY)
+        const cached = await getIdbItem(CACHE_KEY)
         if (cached) {
-            try {
-                providers.value = JSON.parse(cached)
-                // 移除：isFetchingProviders.value = false，确保持续显示 loading 直到最新 API 返回
-            } catch (e) {
-                console.warn('Invalid oauth providers cache', e)
-            }
+            providers.value = cached
         }
 
         // 2. 后台请求接口更新数据
@@ -32,7 +28,7 @@ export function useOAuthProviders() {
                 providers.value = data.providers
                 // 只有当后端返回了有效配置时才更新缓存
                 if (data.providers && data.providers.length > 0) {
-                    localStorage.setItem(CACHE_KEY, JSON.stringify(data.providers))
+                    await setIdbItem(CACHE_KEY, data.providers)
                 }
             }
         } catch (e) {
@@ -53,12 +49,12 @@ export function useOAuthProviders() {
 
             if (data.success && data.authUrl) {
                 // 2. 存储 state 防御 CSRF 并跳转
-                localStorage.setItem('oauth_state', data.state)
-                localStorage.setItem('oauth_provider', providerId)
+                await setIdbItem('tmp:auth:state', data.state)
+                await setIdbItem('tmp:auth:provider', providerId)
 
                 // PKCE (Proof Key for Code Exchange) 支持
                 if (data.codeVerifier) {
-                    localStorage.setItem('oauth_code_verifier', data.codeVerifier)
+                    await setIdbItem('tmp:auth:verifier', data.codeVerifier)
                 }
 
                 window.location.href = data.authUrl

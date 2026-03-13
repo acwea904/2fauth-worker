@@ -116,7 +116,7 @@ const handlePasskeyLogin = async () => {
       await authUserStore.setUserInfo(res.userInfo)
       // 设备指纹 key (用于离线加密验证)
       if (res.deviceKey) {
-        await setIdbItem('device_salt', res.deviceKey)
+        await setIdbItem('sys:sec:device_salt', res.deviceKey)
       }
       
       ElMessage.success(t('common.success'))

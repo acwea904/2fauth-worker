@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { setCookie, getCookie, deleteCookie } from 'hono/cookie';
 import { EnvBindings, AppError } from '@/app/config';
 import { authMiddleware } from '@/shared/middleware/auth';
+import { rateLimit, resetRateLimit } from '@/shared/middleware/rateLimitMiddleware';
+import { SECURITY_CONFIG } from '@/app/config';
 import { getAvailableProviders } from '@/features/auth/providers/index';
 import { AuthService } from '@/features/auth/authService';
 import { WebAuthnService } from '@/features/auth/webAuthnService';
@@ -54,7 +56,10 @@ auth.get('/authorize/:provider', async (c) => {
 });
 
 // 核心逻辑：用 Code 换取系统的 JWT 令牌
-auth.post('/callback/:provider', async (c) => {
+auth.post('/callback/:provider', rateLimit({
+    windowMs: SECURITY_CONFIG.LOCKOUT_TIME,
+    max: SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS,
+}), async (c) => {
     const providerName = c.req.param('provider');
     const body = await c.req.json();
 
@@ -94,6 +99,10 @@ auth.post('/callback/:provider', async (c) => {
         maxAge: 7 * 24 * 60 * 60,
         path: '/',
     });
+
+    // 3. 登录成功，重置限流计数器
+    const clientIp = c.req.header('CF-Connecting-IP') || 'unknown';
+    await resetRateLimit(c, `rl:${clientIp}:/api/auth/callback/${providerName}`);
 
     return c.json({
         success: true,
@@ -161,7 +170,10 @@ auth.post('/webauthn/register/verify', authMiddleware, async (c) => {
 });
 
 // 3. 获取登录选项 (公开)
-auth.get('/webauthn/login/options', async (c) => {
+auth.get('/webauthn/login/options', rateLimit({
+    windowMs: 60 * 1000, // 1分钟内限制获取 options 的频率
+    max: 10,
+}), async (c) => {
     const service = getWebAuthnService(c);
     const options = await service.generateAuthenticationOptions();
 
@@ -173,7 +185,10 @@ auth.get('/webauthn/login/options', async (c) => {
 });
 
 // 4. 验证登录响应 (公开)
-auth.post('/webauthn/login/verify', async (c) => {
+auth.post('/webauthn/login/verify', rateLimit({
+    windowMs: SECURITY_CONFIG.LOCKOUT_TIME,
+    max: SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS,
+}), async (c) => {
     const body = await c.req.json();
     const expectedChallenge = getCookie(c, 'webauthn_login_challenge');
 
@@ -191,6 +206,10 @@ auth.post('/webauthn/login/verify', async (c) => {
     setCookie(c, 'csrf_token', csrfToken, {
         httpOnly: false, secure: true, sameSite: 'Lax', maxAge: 7 * 24 * 60 * 60, path: '/',
     });
+
+    // 登录成功，重置限流计数器
+    const clientIp = c.req.header('CF-Connecting-IP') || 'unknown';
+    await resetRateLimit(c, `rl:${clientIp}:/api/auth/webauthn/login/verify`);
 
     deleteCookie(c, 'webauthn_login_challenge', { path: '/' });
 

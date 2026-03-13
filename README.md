@@ -240,7 +240,7 @@ docker run -d --name 2fauth-worker \
 
 ---
 
-#### 如何配置Github第三方登录（推荐）？
+#### 如何配置Github第三方登录（推荐）
 1. 访问 GitHub `Settings` -> `Developer Settings` -> `OAuth Apps` -> **New OAuth App**。
 2. 回调地址 (Callback URL) 必须填写：`https://你的域名/oauth/callback`。
 3. 将 `Client ID`  `Client Secret` 和 `OAUTH_GITHUB_REDIRECT_URI` 填入环境变量。
@@ -250,7 +250,7 @@ docker run -d --name 2fauth-worker \
 <img width="600" alt="Github OAuth 配置示意" src="https://github.com/user-attachments/assets/aa03b15f-deb2-4e48-bf4b-e57be342adbb" />
 </details>
 
-#### 如何配置Telegram第三方登录？
+#### 如何配置Telegram第三方登录
 1. 在 Telegram 搜索并添加官方机器人 **[@BotFather](https://t.me/BotFather)**，按照提示创建机器人。
 2. 记录生成的 **Token** (`OAUTH_TELEGRAM_BOT_TOKEN`) 和 **用户名** (`OAUTH_TELEGRAM_BOT_NAME`)。
 3. 请务必向 @BotFather 发送 `/setdomain` 指令，选择您的机器人，并输入您的**应用域名**（不需要 `https://`）。
@@ -260,7 +260,7 @@ docker run -d --name 2fauth-worker \
 
 5. 将 `OAUTH_TELEGRAM_BOT_TOKEN`、`OAUTH_TELEGRAM_BOT_NAME` 填入环境变量。
 
-#### 如何配置Cloudflared Access 第三方登录？
+#### 如何配置Cloudflared Access 第三方登录
 1.  进入 **Cloudflare Zero Trust Dashboard** -> **Access** -> **Applications**。
 2.  创建一个 **SaaS** 应用 (Select "SaaS")。
 3.  配置 **Application**:

@@ -2,36 +2,29 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { authService } from '@/features/auth/service/authService'
 import { useVaultStore } from '@/features/vault/store/vaultStore'
-import { removeIdbItem } from '@/shared/utils/idb'
+import { setIdbItem, getIdbItem, removeIdbItem } from '@/shared/utils/idb'
 
 export const useAuthUserStore = defineStore('authUserInfo', () => {
-  const getStoredUser = () => {
-    try {
-      return JSON.parse(localStorage.getItem('userInfo') || '{}')
-    } catch (e) {
-      return {}
-    }
+  const userInfo = ref({})
+
+  const setUserInfo = async (info) => {
+    userInfo.value = info
+    await setIdbItem('auth:user:profile', info)
   }
 
-  const userInfo = ref(getStoredUser())
-
-  const setUserInfo = (info) => {
-    userInfo.value = info
-    localStorage.setItem('userInfo', JSON.stringify(info))
+  const init = async () => {
+    const stored = await getIdbItem('auth:user:profile')
+    if (stored) {
+      userInfo.value = stored
+    }
   }
 
   const clearUserInfo = async () => {
     userInfo.value = {}
-    localStorage.removeItem('userInfo')
-    localStorage.removeItem('secure_vault')
-    localStorage.removeItem('backup_providers_cache')
-
-    // 清理本地持久化运行配置
-    try {
-      await removeIdbItem('device_salt')
-    } catch (e) {
-      console.error('Failed to remove device_salt from IDB', e)
-    }
+    await removeIdbItem('auth:user:profile')
+    await removeIdbItem('vault:data:main')
+    await removeIdbItem('vault:conf:backups')
+    await removeIdbItem('sys:sec:device_salt')
 
     const vaultStore = useVaultStore()
     vaultStore.lock()
@@ -58,6 +51,7 @@ export const useAuthUserStore = defineStore('authUserInfo', () => {
     setUserInfo,
     clearUserInfo,
     logout,
-    fetchUserInfo
+    fetchUserInfo,
+    init
   }
 })

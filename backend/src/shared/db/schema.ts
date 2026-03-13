@@ -66,6 +66,14 @@ export const authPasskeys = sqliteTable('auth_passkeys', {
   createdAt: integer('created_at').notNull(),
 });
 
+// 5. 速率限制表 (Rate Limits)
+export const rateLimits = sqliteTable('rate_limits', {
+  key: text('key').primaryKey(),
+  attempts: integer('attempts').default(0),
+  lastAttempt: integer('last_attempt'),
+  expiresAt: integer('expires_at'),
+});
+
 // 导出类型定义
 export type VaultItem = typeof vault.$inferSelect;
 export type NewVaultItem = typeof vault.$inferInsert;
@@ -74,4 +82,5 @@ export type NewBackupProvider = typeof backupProviders.$inferInsert;
 export type BackupTelegramHistory = typeof backupTelegramHistory.$inferSelect;
 export type NewBackupTelegramHistory = typeof backupTelegramHistory.$inferInsert;
 export type BackupEmailHistory = typeof backupEmailHistory.$inferSelect;
-export type NewBackupEmailHistory = typeof backupEmailHistory.$inferInsert;
+export type NewBackupEmailHistory = typeof backupEmailHistory.$inferInsert;export type RateLimit = typeof rateLimits.$inferSelect;
+export type NewRateLimit = typeof rateLimits.$inferInsert;

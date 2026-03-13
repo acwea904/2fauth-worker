@@ -240,7 +240,7 @@ Regardless of the deployment method, these parameters are critical:
 
 ---
 
-#### How to configure GitHub OAuth Login (Recommended)?
+#### How to configure GitHub OAuth Login (Recommended)
 1. Visit GitHub `Settings` -> `Developer Settings` -> `OAuth Apps` -> **New OAuth App**.
 2. **Authorization callback URL** must be: `https://your-domain.com/oauth/callback`.
 3. Fill `Client ID`, `Client Secret` and `OAUTH_GITHUB_REDIRECT_URI` into environment variables.
@@ -250,7 +250,7 @@ Regardless of the deployment method, these parameters are critical:
 <img width="600" alt="Github OAuth Config" src="https://github.com/user-attachments/assets/aa03b15f-deb2-4e48-bf4b-e57be342adbb" />
 </details>
 
-#### How to configure Telegram Login?
+#### How to configure Telegram Login
 1. Search and add **[@BotFather](https://t.me/BotFather)** on Telegram, following prompts to create a bot.
 2. Record the **Token** (`OAUTH_TELEGRAM_BOT_TOKEN`) and **Username** (`OAUTH_TELEGRAM_BOT_NAME`).
 3. You MUST send the `/setdomain` command to @BotFather, select your bot, and enter your **application domain** (without `https://`).
@@ -260,7 +260,7 @@ Regardless of the deployment method, these parameters are critical:
 
 5. Fill `OAUTH_TELEGRAM_BOT_TOKEN`, `OAUTH_TELEGRAM_BOT_NAME` into environment variables.
 
-#### How to configure Cloudflare Access Login?
+#### How to configure Cloudflare Access Login
 1. Enter **Cloudflare Zero Trust Dashboard** -> **Access** -> **Applications**.
 2. Create a **SaaS** application (Select "SaaS").
 3. Configure **Application**:
