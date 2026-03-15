@@ -63,7 +63,8 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
 }
 
-.vault-list-wrapper .card-header {
+.vault-list-wrapper .card-header,
+.drag-floating-card .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -96,7 +97,8 @@
 }
 
 /* 彻底屏蔽可能被注入的链接样式 */
-.service-name a, .vault-name a {
+.service-name a,
+.vault-name a {
     color: inherit !important;
     text-decoration: none !important;
     pointer-events: none !important;
@@ -104,7 +106,9 @@
 
 /* 在移动端彻底禁用点击，防止触发自动识别的链接 */
 @media (max-width: 767px) {
-    .service-name, .vault-name {
+
+    .service-name,
+    .vault-name {
         pointer-events: none !important;
     }
 }
@@ -334,9 +338,9 @@
     z-index: 9999;
     opacity: 0.95;
     transform: scale(1.05);
-    /* 移除旋转 */
     box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3) !important;
     transition: transform 0.1s ease-out;
+    border-radius: 12px;
 }
 
 /* 消息提示磨砂风格 (全局样式注入建议) */

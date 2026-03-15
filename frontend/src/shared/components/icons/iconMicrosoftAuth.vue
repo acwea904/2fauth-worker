@@ -1,8 +1,8 @@
 <template>
-  <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" fill="none" width="1em" height="1em">
-    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.36" d="M26.88 17.36h-7.84c-4.942 0 -9.072 4.046 -8.204 8.918C13.3 40.166 21.266 47.6 26.88 47.6m0 -30.24h7.84c4.942 0 9.072 4.046 8.204 8.918C40.46 40.166 32.494 47.6 26.88 47.6"/>
-    <path fill="currentColor" fill-rule="evenodd" d="M19.04 15.68a7.84 7.84 0 1 1 15.498 1.68h3.416a11.2 11.2 0 1 0 -22.148 0h3.416a8.4 8.4 0 0 1 -0.182 -1.68m-0.098 27.706a8.12 8.12 0 0 1 15.666 -0.798l2.52 -2.688a11.48 11.48 0 0 0 -20.468 -0.042l1.68 2.702z" clip-rule="evenodd"/>
-    <path stroke="currentColor" stroke-width="3.36" d="M30.8 26.32a3.92 3.92 0 0 1 -3.92 3.92 3.92 3.92 0 0 1 -3.92 -3.92 3.92 3.92 0 0 1 7.84 0z"/>
+  <svg width="1em" height="1em" viewBox="16 16 156 156" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="12" d="M96 62H68c-17.673 0-32.389 14.46-29.302 31.862C47.497 143.453 75.94 170 96 170m0-108h28c17.673 0 32.389 14.46 29.302 31.862C144.503 143.453 116.06 170 96 170"/>
+    <path fill="currentColor" fill-rule="evenodd" d="M68 56c0-15.464 12.536-28 28-28s28 12.536 28 28c0 2.06-.222 4.067-.644 6h12.197c.294-1.957.447-3.96.447-6 0-22.091-17.909-40-40-40S56 33.909 56 56c0 2.04.153 4.043.447 6h12.197A28.105 28.105 0 0 1 68 56Zm-.367 98.946C70.417 141.836 82.06 132 96 132c12.903 0 23.838 8.427 27.601 20.077l8.982-9.608C125.816 129.136 111.975 120 96 120c-15.922 0-29.725 9.076-36.516 22.338L65.5 152l2.133 2.946Z" clip-rule="evenodd"/>
+    <circle cx="96" cy="94" r="14" stroke="currentColor" stroke-width="12"/>
   </svg>
 </template>
 <script>

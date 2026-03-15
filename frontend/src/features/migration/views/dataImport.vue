@@ -61,6 +61,7 @@
                 </h4>
                 <div class="ecosystem-grid">
                   <el-button plain class="migration-button-with-icon" @click="triggerUpload"><el-icon><iconBitwarden /></el-icon> Bitwarden Vault (.json/.csv)</el-button>
+                  <el-button plain class="migration-button-with-icon" @click="triggerUpload"><el-icon><icon1Password /></el-icon> {{ $t('migration.onepassword_format') }}</el-button>
                 </div>
               </div>
 
@@ -78,6 +79,7 @@
                   <el-button plain class="migration-button-with-icon" @click="triggerUpload"><el-icon><iconEnte /></el-icon> Ente Auth(.txt)</el-button>
                   <el-button plain class="migration-button-with-icon" @click="triggerUpload"><el-icon><iconGoogleAuth /></el-icon> Google Auth (.png/.jpg)</el-button>
                   <el-button plain class="migration-button-with-icon" @click="triggerUpload"><el-icon><iconMicrosoftAuth /></el-icon> Microsoft Auth (PhoneFactor)</el-button>
+                  <el-button plain class="migration-button-with-icon" @click="triggerUpload"><el-icon><iconLastPassAuth /></el-icon> LastPass Auth (.json)</el-button>
                 </div>
               </div>
 
@@ -187,6 +189,8 @@ import iconBitwarden from '@/shared/components/icons/iconBitwarden.vue'
 import iconMicrosoftAuth from '@/shared/components/icons/iconMicrosoftAuth.vue'
 import iconProtonAuth from '@/shared/components/icons/iconProtonAuth.vue'
 import iconEnte from '@/shared/components/icons/iconEnte.vue'
+import icon1Password from '@/shared/components/icons/icon1Password.vue'
+import iconLastPassAuth from '@/shared/components/icons/iconLastPassAuth.vue'
 
 const emit = defineEmits(['success'])
 

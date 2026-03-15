@@ -125,11 +125,11 @@ export function useDataExport() {
                     mimeType = 'text/plain'
                     filename = `2fauth-worker-export-otpauth-${date}.txt`
                     break
-                case 'csv':
+                case 'generic_csv':
                     mimeType = 'text/csv'
                     filename = `2fauth-worker-export-csv-${date}.csv`
                     break
-                case 'bitwarden_auth':
+                case 'bitwarden_auth_json':
                     mimeType = 'application/json'
                     filename = `2fauth-worker-export-bitwarden-auth-${date}.json`
                     break

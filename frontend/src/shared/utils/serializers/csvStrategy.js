@@ -64,17 +64,28 @@ export const csvStrategy = {
         const rawVault = []
 
         const isBitwardenVault = headers.includes('login_totp')
-        const isBitwardenAuth = headers.includes('otpauth') // Bitwarden Auth standalone usually has simple column names
+        const isBitwardenAuth = headers.includes('otpauth') && !headers.includes('title')
+        const is1Password = headers.includes('otpauth') && headers.includes('title')
         const isGeneric = headers.includes('issuer') || headers.includes('secret') || headers.includes('name')
 
-        if (!isBitwardenVault && !isBitwardenAuth && !isGeneric) return []
+        if (!isBitwardenVault && !isBitwardenAuth && !is1Password && !isGeneric) return []
 
         for (let i = 1; i < lines.length; i++) {
             const row = this._splitCsvLine(lines[i])
             const rowData = {}
             headers.forEach((h, index) => { rowData[h] = row[index] || '' })
 
-            if (isBitwardenVault || isBitwardenAuth) {
+            if (is1Password) {
+                const totpStr = (rowData['otpauth'] || '').trim()
+                if (totpStr && totpStr.startsWith('otpauth://')) {
+                    const accData = parseOtpUri(totpStr)
+                    if (accData) {
+                        accData.service = rowData['title'] || accData.service
+                        accData.account = rowData['username'] || accData.account
+                        rawVault.push(accData)
+                    }
+                }
+            } else if (isBitwardenVault || isBitwardenAuth) {
                 const totpStr = (rowData['login_totp'] || rowData['otpauth'] || rowData['totp'] || '').trim()
                 if (totpStr) {
                     let accData = null

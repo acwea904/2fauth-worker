@@ -174,7 +174,7 @@ export function useDataImport(emitFn) {
                 }
 
                 let contentForParse = buffer
-                if (detectedType !== 'phonefactor') {
+                if (detectedType !== 'phonefactor' && detectedType !== '1password_pux') {
                     try {
                         contentForParse = new TextDecoder().decode(buffer)
                     } catch {
