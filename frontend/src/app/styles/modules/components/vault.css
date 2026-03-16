@@ -376,7 +376,7 @@
     cursor: pointer;
     background: var(--el-fill-color-light);
     color: var(--el-text-color-regular);
-    padding: 5px 10px;
+    padding: 3px 10px 4px 10px;
     border-radius: 4px;
     font-size: 13px;
     white-space: nowrap;
@@ -391,16 +391,27 @@
     background: var(--el-fill-color);
 }
 
-/* 合并后的激活状态 */
+/* Final Choice: Option 1 - Subtle Glassmorphism (毛玻璃高亮) */
 .category-tag.is-active {
-    background-color: var(--el-color-primary) !important;
-    color: #fff !important;
-    border-color: var(--el-color-primary) !important;
-    font-weight: 500;
+    background-color: var(--el-color-primary-light-9) !important;
+    color: var(--el-color-primary) !important;
+    border-color: var(--el-color-primary-light-5) !important;
+}
+
+/* 适配深色模式下的透明度感 */
+html.dark .category-tag.is-active {
+    background-color: rgba(64, 158, 255, 0.15) !important;
+    border-color: rgba(64, 158, 255, 0.4) !important;
+    color: var(--el-color-primary-light-3) !important;
 }
 
 .category-tag.is-active .tag-count {
-    color: rgba(255, 255, 255, 0.8) !important;
+    color: var(--el-color-primary) !important;
+    opacity: 0.7;
+}
+
+html.dark .category-tag.is-active .tag-count {
+    color: var(--el-color-primary-light-3) !important;
 }
 
 .tag-count {

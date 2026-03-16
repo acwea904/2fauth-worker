@@ -11,6 +11,7 @@ import backupRoutes from '@/features/backup/backupRoutes';
 import telegramRoutes from '@/features/telegram/telegramRoutes';
 import toolsRoutes from '@/features/tools/toolsRoutes';
 import healthRoutes from '@/features/health/healthRoutes';
+import emergencyRoutes from '@/features/emergency/emergencyRoutes';
 import { runHealthCheck } from '@/shared/utils/health';
 
 // 扩展 EnvBindings 以包含 ASSETS (Cloudflare Pages/Workers Assets)
@@ -86,6 +87,7 @@ app.use('/api/*', async (c, next) => {
 
 // 4. 挂载子路由
 app.route('/api/health', healthRoutes);
+app.route('/api/emergency', emergencyRoutes);
 app.route('/api/oauth', authRoutes);
 app.route('/api/vault', vaultRoutes); // 'accounts' is now 'vault'
 app.route('/api/backups', backupRoutes);

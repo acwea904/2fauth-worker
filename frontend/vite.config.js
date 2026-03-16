@@ -26,10 +26,6 @@ export default defineConfig({
       imports: ['vue', 'vue-router'],
       resolvers: [ElementPlusResolver({ importStyle: false })],
     }),
-    AutoImport({
-      imports: ['vue', 'vue-router'],
-      resolvers: [ElementPlusResolver({ importStyle: false })],
-    }),
     Components({
       resolvers: [
         ElementPlusResolver({
@@ -85,6 +81,8 @@ export default defineConfig({
           '**/assets/libsodium-wrappers*.js',
           '**/assets/sql*.js',
           '**/assets/jsQR*.js',
+          '**/assets/pdf-utils*.js',
+          '**/assets/compression-utils*.js',
           '**/assets/dataImport*.js',
           '**/assets/dataMigrationService*.js'
         ],
@@ -119,7 +117,7 @@ export default defineConfig({
           },
           {
             // 为被 globIgnores 忽略的大体积工具 JS chunk 配置动态缓存
-            urlPattern: /assets\/(wa-sqlite|argon2|hash-wasm|libsodium-wrappers|sql|jsQR|dataImport|dataMigrationService).*\.js$/i,
+            urlPattern: /assets\/(wa-sqlite|argon2|hash-wasm|libsodium-wrappers|sql|jsQR|pdf-utils|compression-utils|dataImport|dataMigrationService).*\.js$/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'lazy-tools-js-cache',
@@ -184,6 +182,10 @@ export default defineConfig({
 
             // 新增：通行密钥 (Passkey) 相关
             if (id.includes('/node_modules/@simplewebauthn/')) return 'simplewebauthn'
+
+            // 新增：PDF 生成与压缩相关 (体积较大且仅特定场景使用)
+            if (id.includes('/node_modules/jspdf/') || id.includes('/node_modules/html2canvas/')) return 'pdf-utils'
+            if (id.includes('/node_modules/fflate/')) return 'compression-utils'
 
             // 二维码处理相关 (体积较大且仅特定页面使用)
             if (id.includes('/node_modules/qrcode/') || id.includes('/node_modules/jsqr/')) return 'qr-utils'

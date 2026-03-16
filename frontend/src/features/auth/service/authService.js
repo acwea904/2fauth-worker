@@ -95,5 +95,20 @@ export const authService = {
         } catch (error) {
             return { success: false }
         }
+    },
+
+    /**
+     * 确认系统初始化已完成 (验证并激活)
+     * @param {string} lastFour - Key 的最后 4 位
+     */
+    async confirmEmergency(lastFour) {
+        try {
+            return await request('/api/emergency/confirm', {
+                method: 'POST',
+                body: JSON.stringify({ lastFour })
+            })
+        } catch (error) {
+            throw new authError(error.message || '系统确认失败', error.status)
+        }
     }
 }

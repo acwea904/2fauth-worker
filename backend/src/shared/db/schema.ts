@@ -75,6 +75,12 @@ export const rateLimits = sqliteTable('rate_limits', {
   expiresAt: integer('expires_at'),
 });
 
+// 6. 架构元数据表 (Metadata)
+export const schemaMetadata = sqliteTable('_schema_metadata', {
+  key: text('key').primaryKey(),
+  value: text('value'),
+});
+
 // 导出类型定义
 export type VaultItem = typeof vault.$inferSelect;
 export type NewVaultItem = typeof vault.$inferInsert;
@@ -83,5 +89,8 @@ export type NewBackupProvider = typeof backupProviders.$inferInsert;
 export type BackupTelegramHistory = typeof backupTelegramHistory.$inferSelect;
 export type NewBackupTelegramHistory = typeof backupTelegramHistory.$inferInsert;
 export type BackupEmailHistory = typeof backupEmailHistory.$inferSelect;
-export type NewBackupEmailHistory = typeof backupEmailHistory.$inferInsert;export type RateLimit = typeof rateLimits.$inferSelect;
+export type NewBackupEmailHistory = typeof backupEmailHistory.$inferInsert;
+export type RateLimit = typeof rateLimits.$inferSelect;
 export type NewRateLimit = typeof rateLimits.$inferInsert;
+export type SchemaMetadata = typeof schemaMetadata.$inferSelect;
+export type NewSchemaMetadata = typeof schemaMetadata.$inferInsert;

@@ -77,7 +77,7 @@ export function useDataExport() {
             if (exportForm.value.password !== exportForm.value.confirm) {
                 return ElMessage.error(t('migration.password_mismatch'))
             }
-            if (exportForm.value.password.length < 12) {
+            if (exportForm.value.password.length < 6) {
                 return ElMessage.error(t('migration.password_weak'))
             }
             password = exportForm.value.password
@@ -160,7 +160,11 @@ export function useDataExport() {
             ElMessage.success(t('migration.export_success'))
         } catch (error) {
             console.error('Export failed:', error)
-            ElMessage.error(error.message || t('migration.export_failed'))
+            // fetchAllVault uses request.js (auto-toast)
+            // For local errors like "no_accounts_to_export" or crypto fails, we manually toast if not handled
+            if (error.message && !error.message.includes('fetch') && !error.message.includes('api_errors')) {
+                ElMessage.error(error.message)
+            }
         } finally {
             isExporting.value = false
         }

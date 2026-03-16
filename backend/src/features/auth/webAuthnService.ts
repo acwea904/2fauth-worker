@@ -9,15 +9,19 @@ import {
     verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
 
+import { EmergencyRepository } from '@/shared/db/repositories/emergencyRepository';
+
 export class WebAuthnService {
     private env: EnvBindings;
     private rpName = '2FAuth Worker';
     private rpID: string;
     private origin: string;
+    private emergencyRepository: EmergencyRepository;
 
     constructor(env: EnvBindings, url: string, headers?: Record<string, string | undefined>) {
         this.env = env;
         const parsedUrl = new URL(url);
+        this.emergencyRepository = new EmergencyRepository(env.DB);
 
         // Handle Reverse Proxy (Docker/Nginx/Cloudflare)
         // If X-Forwarded-Proto exists, use it as the real protocol
@@ -151,6 +155,10 @@ export class WebAuthnService {
             // 核心: 必须使用 Email 与 OAuth 逻辑保持对齐，确保解密一致性。
             const deviceKey = await generateDeviceKey(userEmail, this.env.JWT_SECRET || '');
 
+            // 检查是否需要初始化设置
+            const isEmergencyConfirmed = await this.emergencyRepository.isEmergencyConfirmed();
+            const needsEmergency = !isEmergencyConfirmed;
+
             return {
                 success: true,
                 token,
@@ -160,7 +168,9 @@ export class WebAuthnService {
                     username: userEmail.split('@')[0],
                     email: userEmail,
                     provider: 'passkey'
-                }
+                },
+                needsEmergency,
+                ...(needsEmergency && { encryptionKey: this.env.ENCRYPTION_KEY })
             };
         }
 

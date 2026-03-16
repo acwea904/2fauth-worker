@@ -102,11 +102,18 @@ export function useOAuthCallback() {
                 }
                 // 更新状态机进入应用主流程
                 const authUserStore = useAuthUserStore()
-                await authUserStore.fetchUserInfo()
+                
+                // 将用户信息和设置状态存入 store
+                await authUserStore.setUserInfo(data.userInfo, !!data.needsEmergency, data.encryptionKey || '')
 
                 // 清理旧的 Tab 状态，确保干净进入首页
                 sessionStorage.clear()
-                router.push('/')
+                
+                if (data.needsEmergency) {
+                    router.push('/emergency')
+                } else {
+                    router.push('/')
+                }
             } else {
                 errorMsg.value = data.error || t('auth.login_rejected')
             }

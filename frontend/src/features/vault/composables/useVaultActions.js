@@ -140,7 +140,7 @@ export function useVaultActions(fetchVault, vault, categoryStats) {
             vaultStore.markDirty()
         } catch (e) {
             successMsg?.close()
-            ElMessage.error(t('common.error'))
+            // Error already toasted by request.js interceptor
             // 失败回退：重推旧顺序到 UI
             vault.value = oldItems
             fetchVault() 

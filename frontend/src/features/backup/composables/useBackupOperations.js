@@ -33,7 +33,7 @@ export function useBackupOperations(uiState, emit, fetchProviders) {
     }
 
     const handleBackup = async () => {
-        if (!uiState.useAutoPassword.value && uiState.backupPassword.value.length < 12) {
+        if (!uiState.useAutoPassword.value && uiState.backupPassword.value.length < 6) {
             return ElMessage.warning(t('backup.password_min_length'))
         }
 

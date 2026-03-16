@@ -7,6 +7,7 @@ import { SECURITY_CONFIG } from '@/app/config';
 import { getAvailableProviders } from '@/features/auth/providers/index';
 import { AuthService } from '@/features/auth/authService';
 import { WebAuthnService } from '@/features/auth/webAuthnService';
+import { EmergencyRepository } from '@/shared/db/repositories/emergencyRepository';
 
 const auth = new Hono<{ Bindings: EnvBindings, Variables: { user: any } }>();
 
@@ -79,7 +80,7 @@ auth.post('/callback/:provider', rateLimit({
     const service = getService(c);
 
     // 调用 Service 层处理登录
-    const { token, userInfo, deviceKey } = await service.handleOAuthCallback(providerName, body);
+    const { token, userInfo, deviceKey, needsEmergency, encryptionKey } = await service.handleOAuthCallback(providerName, body);
 
     // 1. 设置 httpOnly 的鉴权 Cookie
     setCookie(c, 'auth_token', token, {
@@ -107,7 +108,9 @@ auth.post('/callback/:provider', rateLimit({
     return c.json({
         success: true,
         userInfo,
-        deviceKey
+        deviceKey,
+        needsEmergency,
+        encryptionKey
     });
 });
 
@@ -126,14 +129,24 @@ auth.post('/logout', (c) => {
 });
 
 // 获取当前用户信息
-auth.get('/me', authMiddleware, (c) => {
+auth.get('/me', authMiddleware, async (c) => {
     const user = c.get('user');
     c.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     c.header('Pragma', 'no-cache');
     c.header('Expires', '0');
+
+    // 检查是否需要系统初始化
+    const repository = new EmergencyRepository(c.env.DB);
+    const isEmergencyConfirmed = await repository.isEmergencyConfirmed();
+    
+    // 如果未激活，则持续返回加密密钥供备份页面使用
+    const encryptionKey = !isEmergencyConfirmed ? c.env.ENCRYPTION_KEY : undefined;
+
     return c.json({
         success: true,
-        userInfo: user
+        userInfo: user,
+        needsEmergency: !isEmergencyConfirmed,
+        encryptionKey
     });
 });
 
@@ -216,7 +229,9 @@ auth.post('/webauthn/login/verify', rateLimit({
     return c.json({
         success: true,
         deviceKey: result.deviceKey,
-        userInfo: result.userInfo
+        userInfo: result.userInfo,
+        needsEmergency: result.needsEmergency,
+        encryptionKey: result.encryptionKey
     });
 });
 

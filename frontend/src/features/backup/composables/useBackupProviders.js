@@ -167,7 +167,7 @@ export function useBackupProviders() {
             if (isEditing.value && isAutoBackupPasswordSaved.value && shouldUseExistingAutoBackupPassword.value) {
                 return null
             }
-            if (!form.value.autoBackupPassword || form.value.autoBackupPassword.length < 12) {
+            if (!form.value.autoBackupPassword || form.value.autoBackupPassword.length < 6) {
                 return t('backup.password_min_length')
             }
         }

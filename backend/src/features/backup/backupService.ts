@@ -218,7 +218,7 @@ export class BackupService {
 
         let encryptedAutoBackupPwd = null;
         if (autoBackup && autoBackupPassword) {
-            if (autoBackupPassword.length < 12) throw new AppError('backup_password_length', 400);
+            if (autoBackupPassword.length < 6) throw new AppError('backup_password_length', 400);
             encryptedAutoBackupPwd = JSON.stringify(await encryptData(autoBackupPassword, key));
         } else if (autoBackup) {
             throw new AppError('backup_password_required', 400);
@@ -254,7 +254,7 @@ export class BackupService {
 
         let finalAutoPwd = current?.autoBackupPassword;
         if (autoBackupPassword) {
-            if (autoBackupPassword.length < 12) throw new AppError('backup_password_length', 400);
+            if (autoBackupPassword.length < 6) throw new AppError('backup_password_length', 400);
             finalAutoPwd = JSON.stringify(await encryptData(autoBackupPassword, key));
         } else if (autoBackup && !finalAutoPwd) {
             throw new AppError('backup_password_required', 400);
@@ -316,7 +316,7 @@ export class BackupService {
                 backupPassword = await decryptData(JSON.parse(providerRow.autoBackupPassword), key);
             }
 
-            if (!backupPassword || backupPassword.length < 12) {
+            if (!backupPassword || backupPassword.length < 6) {
                 throw new AppError('backup_password_length', 400);
             }
 

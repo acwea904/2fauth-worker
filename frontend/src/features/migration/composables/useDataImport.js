@@ -314,16 +314,11 @@ export function useDataImport(emitFn) {
                     duration: batchErrors.value.length > 0 ? 0 : 8000
                 })
 
-                if (data.count > 0) {
-                    vaultStore.markDirty()
-                    emitFn('success')
-                }
-            } else {
-                ElMessage.error(t('api_errors.request_failed'))
+                // The error case (data.success === false) is already handled by request.js interceptor
             }
         } catch (err) {
             showBatchProgress.value = false
-            ElMessage.error(`${t('api_errors.request_failed')}: ${err.message}`)
+            // Error already toasted by request.js
         } finally {
             resetBatchState()
         }

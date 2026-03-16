@@ -29,6 +29,12 @@ const routes = [
     name: 'HealthCheck',
     component: () => import('@/features/health/views/healthCheck.vue'),
     meta: { guestOnly: false, requiresAuth: false }
+  },
+  {
+    path: '/emergency',
+    name: 'Emergency',
+    component: () => import('@/features/auth/views/emergency.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 
@@ -61,7 +67,17 @@ router.beforeEach(async (to) => {
     return '/login'
   }
 
-  // 4. 处理仅限游客的页面
+  // 4. 处理强制初始化逻辑 (核心密钥备份)
+  if (isAuthenticated) {
+    if (authUserStore.needsEmergency && to.path !== '/emergency') {
+      return '/emergency'
+    }
+    if (!authUserStore.needsEmergency && to.path === '/emergency') {
+      return '/'
+    }
+  }
+
+  // 5. 处理仅限游客的页面
   if (to.meta.guestOnly && isAuthenticated) {
     return '/'
   }

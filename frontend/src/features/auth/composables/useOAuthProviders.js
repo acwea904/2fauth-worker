@@ -33,7 +33,6 @@ export function useOAuthProviders() {
             }
         } catch (e) {
             console.error('Failed to sync oauth providers:', e)
-            ElMessage.error(i18n.global.t('auth.fetch_providers_failed'))
         } finally {
             isFetchingProviders.value = false
         }
@@ -67,11 +66,7 @@ export function useOAuthProviders() {
             }
         } catch (error) {
             // Error managed by axios request interceptor & authError
-            let errorMsg = error.message
-            if (errorMsg && i18n.global.te(`api_errors.${errorMsg}`)) {
-                errorMsg = i18n.global.t(`api_errors.${errorMsg}`)
-            }
-            ElMessage.error(errorMsg || i18n.global.t('auth.oauth_network_error'))
+            console.error('OAuth Login Error:', error)
         } finally {
             // The loading state mostly clears when the page navigates away, 
             // but we reset it here in case of errors.

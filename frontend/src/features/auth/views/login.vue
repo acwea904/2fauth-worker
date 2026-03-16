@@ -66,6 +66,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Lock, Platform, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
@@ -82,6 +83,7 @@ import { useAuthUserStore } from '@/features/auth/store/authUserStore'
 import { setIdbItem } from '@/shared/utils/idb'
 
 const { t } = useI18n()
+const router = useRouter()
 const authUserStore = useAuthUserStore()
 
 const iconComponents = {
@@ -113,14 +115,18 @@ const handlePasskeyLogin = async () => {
     const res = await webAuthnService.login()
     if (res.success) {
       // Passkey 登录逻辑与 OAuth 回调成功后一致
-      await authUserStore.setUserInfo(res.userInfo)
+      await authUserStore.setUserInfo(res.userInfo, !!res.needsEmergency, res.encryptionKey || '')
       // 设备指纹 key (用于离线加密验证)
       if (res.deviceKey) {
         await setIdbItem('sys:sec:device_salt', res.deviceKey)
       }
       
       ElMessage.success(t('common.success'))
-      window.location.href = '/'
+      if (res.needsEmergency) {
+        router.push('/emergency')
+      } else {
+        window.location.href = '/'
+      }
     }
   } catch (error) {
     console.error('Passkey login failed:', error)

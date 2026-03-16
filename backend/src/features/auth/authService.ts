@@ -3,11 +3,15 @@ import { generateSecureJWT, generateDeviceKey } from '@/shared/utils/crypto';
 import { getOAuthProvider } from '@/features/auth/providers/index';
 import type { OAuthUserInfo } from '@/features/auth/providers/baseOAuthProvider';
 
+import { EmergencyRepository } from '@/shared/db/repositories/emergencyRepository';
+
 export class AuthService {
     private env: EnvBindings;
+    private emergencyRepository: EmergencyRepository;
 
     constructor(env: EnvBindings) {
         this.env = env;
+        this.emergencyRepository = new EmergencyRepository(env.DB);
     }
 
     /**
@@ -28,7 +32,13 @@ export class AuthService {
     /**
      * OAuth Callback 处理，生成会话并返回附加参数
      */
-    async handleOAuthCallback(providerName: string, body: any): Promise<{ token: string, userInfo: OAuthUserInfo, deviceKey: string }> {
+    async handleOAuthCallback(providerName: string, body: any): Promise<{ 
+        token: string, 
+        userInfo: OAuthUserInfo, 
+        deviceKey: string,
+        needsEmergency: boolean,
+        encryptionKey?: string
+    }> {
         const provider = getOAuthProvider(providerName, this.env);
 
         let params: string | URLSearchParams;
@@ -57,7 +67,17 @@ export class AuthService {
         // 注意：此处统一使用 userInfo.email 作为密钥因子，以确保 OAuth 与 Passkey 登录产生的解密密钥一致。
         const deviceKey = await generateDeviceKey(userInfo.email || userInfo.id, this.env.JWT_SECRET || '');
 
-        return { token, userInfo, deviceKey };
+        // 检查是否需要强制备份 (Emergency 流程)
+        const isEmergencyConfirmed = await this.emergencyRepository.isEmergencyConfirmed();
+        const needsEmergency = !isEmergencyConfirmed;
+
+        return { 
+            token, 
+            userInfo, 
+            deviceKey, 
+            needsEmergency,
+            ...(needsEmergency && { encryptionKey: this.env.ENCRYPTION_KEY })
+        };
     }
 
 
