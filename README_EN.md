@@ -281,6 +281,18 @@ Regardless of the deployment method, these parameters are critical:
 <img height="400" src="https://github.com/user-attachments/assets/c6101ee8-f3c3-44f6-9286-f17865f8fb10" />
 </details>
 
+## 🔓 Offline Recovery
+
+Even if this project stops running, you can still recover your TOTP raw data using your backup file and encryption password. We provide a standalone offline decryption script that does not depend on any external servers:
+
+- **Script Path**: [scripts/decrypt_backup.js](file:///workspaces/2fa.hsiao.nom.za/scripts/decrypt_backup.js)
+- **Requirement**: Just [Node.js](https://nodejs.org/) (uses built-in crypto module, no `npm install` required).
+- **Usage**:
+  ```bash
+  node scripts/decrypt_backup.js <encrypted_backup.json> <your_password>
+  ```
+  The decrypted data will be output to the console or saved to a file in plaintext JSON format.
+
 ---
 
 ## 🔒 Security Auditing

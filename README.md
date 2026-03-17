@@ -282,6 +282,18 @@ docker run -d --name 2fauth-worker \
 <img height="400" src="https://github.com/user-attachments/assets/c6101ee8-f3c3-44f6-9286-f17865f8fb10" />
 </details>
 
+## 🔓 离线恢复 (Offline Recovery)
+
+即使本项目停止运行，您也可以通过备份文件和您的加密密码找回 TOTP 原始数据。我们提供了一个独立的离线解密脚本，它不依赖于任何外部服务器：
+
+- **脚本路径**：[scripts/decrypt_backup.js](file:///workspaces/2fa.hsiao.nom.za/scripts/decrypt_backup.js)
+- **使用环境**：仅需安装 [Node.js](https://nodejs.org/) (内置 crypto 模块，无需 npm install)。
+- **使用方法**：
+  ```bash
+  node scripts/decrypt_backup.js <加密的备份文件.json> <您的密码>
+  ```
+  解密后的数据将以明文 JSON 格式输出到控制台或保存到文件。
+
 ---
 
 ## 🔒 深度安全审计 (Security Auditing)
