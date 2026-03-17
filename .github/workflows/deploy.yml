@@ -81,7 +81,7 @@ jobs:
           CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
           CLOUDFLARE_D1_DATABASE_NAME: ${{ secrets.CLOUDFLARE_D1_DATABASE_NAME || '2fauth-db' }}
         run: |
-          sed -i '/^\[\[d1_databases\]\]/d; /^[[:space:]]*database_name[[:space:]]*=/d; /^[[:space:]]*database_id[[:space:]]*=/d' wrangler.toml
+          sed -i '/^\[\[d1_databases\]\]/d; /^[[:space:]]*database_name[[:space:]]*=/d; /^[[:space:]]*database_id[[:space:]]*=/d; /^[[:space:]]*binding[[:space:]]*=[[:space:]]*"DB"/d' wrangler.toml
           if grep -q "\[env.dev\]" wrangler.toml; then
             sed -i '/\[env.dev\]/,$d' wrangler.toml
           fi
