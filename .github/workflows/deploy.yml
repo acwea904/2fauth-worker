@@ -74,12 +74,20 @@ jobs:
             cp "$CONFIG_FILE" wrangler.toml
           fi
 
+      # 注入 Cloudflare Workers 名称
+      - name: Inject Workers Name
+        env:
+          CONFIG_FILE: ${{ env.WRANGLER_CONFIG || 'wrangler.toml' }}
+          CLOUDFLARE_WORKERS_NAME: ${{ secrets.CLOUDFLARE_WORKERS_NAME || '2fauth-worker' }}
+        run: |
+          sed -i "0,/name =/s/name = \".*\"/name = \"$CLOUDFLARE_WORKERS_NAME\"/" "wrangler.toml"
+
       # 注入 D1 数据库配置
       - name: Inject D1 Database ID
         env:
           CONFIG_FILE: ${{ env.WRANGLER_CONFIG || 'wrangler.toml' }}
           CLOUDFLARE_D1_DATABASE_ID: ${{ secrets.CLOUDFLARE_D1_DATABASE_ID }}
-          CLOUDFLARE_D1_DATABASE_NAME: ${{ secrets.CLOUDFLARE_D1_DATABASE_NAME || '2fauth-db' }}
+          CLOUDFLARE_D1_DATABASE_NAME: ${{ secrets.CLOUDFLARE_D1_DATABASE_NAME || 'nodeauth-db' }}
         run: |
           sed -i '/^\[\[d1_databases\]\]/d; /^[[:space:]]*database_name[[:space:]]*=/d; /^[[:space:]]*database_id[[:space:]]*=/d; /^[[:space:]]*binding[[:space:]]*=[[:space:]]*"DB"/d' wrangler.toml
           if grep -q "\[env.dev\]" wrangler.toml; then
@@ -93,7 +101,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: d1 execute ${{ secrets.CLOUDFLARE_D1_DATABASE_NAME || '2fauth-db' }} --remote --file=backend/schema.sql
+          command: d1 execute ${{ secrets.CLOUDFLARE_D1_DATABASE_NAME || 'nodeauth-db' }} --remote --file=backend/schema.sql
 
       # 动态生成 Secrets 列表 (仅包含已配置的变量)
       - name: Generate Secret List
@@ -123,6 +131,8 @@ jobs:
           OAUTH_BAIDU_CLIENT_SECRET: ${{ secrets.OAUTH_BAIDU_CLIENT_SECRET }}
           OAUTH_DROPBOX_CLIENT_ID: ${{ secrets.OAUTH_DROPBOX_CLIENT_ID }}
           OAUTH_DROPBOX_CLIENT_SECRET: ${{ secrets.OAUTH_DROPBOX_CLIENT_SECRET }}
+          OAUTH_WALLETCONNECT_PROJECT_ID: ${{ secrets.OAUTH_WALLETCONNECT_PROJECT_ID }}
+          OAUTH_WALLETCONNECT_SELF_PROXY: ${{ secrets.OAUTH_WALLETCONNECT_SELF_PROXY }}
 
         run: |
           SECRETS="
@@ -141,6 +151,7 @@ jobs:
             "OAUTH_MICROSOFT_CLIENT_ID" "OAUTH_MICROSOFT_CLIENT_SECRET"
             "OAUTH_BAIDU_CLIENT_ID" "OAUTH_BAIDU_CLIENT_SECRET"
             "OAUTH_DROPBOX_CLIENT_ID" "OAUTH_DROPBOX_CLIENT_SECRET"
+            "OAUTH_WALLETCONNECT_PROJECT_ID" "OAUTH_WALLETCONNECT_SELF_PROXY"
           )
 
           for VAR in "${OPTIONAL_VARS[@]}"; do
@@ -195,6 +206,8 @@ jobs:
           OAUTH_BAIDU_CLIENT_SECRET: ${{ secrets.OAUTH_BAIDU_CLIENT_SECRET }}
           OAUTH_DROPBOX_CLIENT_ID: ${{ secrets.OAUTH_DROPBOX_CLIENT_ID }}
           OAUTH_DROPBOX_CLIENT_SECRET: ${{ secrets.OAUTH_DROPBOX_CLIENT_SECRET }}
+          OAUTH_WALLETCONNECT_PROJECT_ID: ${{ secrets.OAUTH_WALLETCONNECT_PROJECT_ID }}
+          OAUTH_WALLETCONNECT_SELF_PROXY: ${{ secrets.OAUTH_WALLETCONNECT_SELF_PROXY }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
